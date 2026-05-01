@@ -1,57 +1,24 @@
-/// Classe que representa um usuário do sistema.
-/// Demonstra encapsulamento com campos privados e getters/setters.
+import 'tipo_usuario.dart';
+
 class Usuario {
-  final String _id;
-  final String _nome;
-  final String _email;
-  String _senha;
-  String _telefone;
-  DateTime _dataCadastro;
+  String id;
+  String nome;
+  String email;
+  final String _senha;
+  final TipoUsuario tipo;
+  final String? orgaoNome;
+  final DateTime dataCadastro;
 
   Usuario({
-    required String id,
-    required String nome,
-    required String email,
+    required this.id,
+    required this.nome,
+    required this.email,
     required String senha,
-    String telefone = '',
-  })  : _id = id,
-        _nome = nome,
-        _email = email,
-        _senha = senha,
-        _telefone = telefone,
-        _dataCadastro = DateTime.now();
+    this.tipo = TipoUsuario.cidadao,
+    this.orgaoNome,
+  })  : _senha = senha,
+        dataCadastro = DateTime.now();
 
-  // Getters (encapsulamento)
-  String get id => _id;
-  String get nome => _nome;
-  String get email => _email;
-  String get telefone => _telefone;
-  DateTime get dataCadastro => _dataCadastro;
-
-  // Setter com validação
-  set telefone(String value) {
-    if (value.length >= 10 || value.isEmpty) {
-      _telefone = value;
-    }
-  }
-
-  bool validarSenha(String senha) => _senha == senha;
-
-  void alterarSenha(String senhaAtual, String novaSenha) {
-    if (validarSenha(senhaAtual)) {
-      _senha = novaSenha;
-    } else {
-      throw Exception('Senha atual incorreta');
-    }
-  }
-
-  Map<String, dynamic> toMap() {
-    return {
-      'id': _id,
-      'nome': _nome,
-      'email': _email,
-      'telefone': _telefone,
-      'dataCadastro': _dataCadastro.toIso8601String(),
-    };
-  }
+  bool verificarSenha(String senha) => _senha == senha;
+  bool autenticar(String senha) => _senha == senha;
 }

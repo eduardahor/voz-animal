@@ -1,57 +1,33 @@
 import 'package:flutter/foundation.dart';
-import 'package:uuid/uuid.dart';
 import '../models/usuario.dart';
+import '../models/tipo_usuario.dart';
 
-/// Serviço de autenticação — gerencia login, cadastro e sessão.
-/// Separação de responsabilidades (Service layer).
 class AuthService extends ChangeNotifier {
   Usuario? _usuarioLogado;
   final List<Usuario> _usuarios = [];
-  final _uuid = const Uuid();
 
   Usuario? get usuarioLogado => _usuarioLogado;
-  bool get isAutenticado => _usuarioLogado != null;
+  bool get estaLogado => _usuarioLogado != null;
 
-  /// Cadastra um novo usuário
-  Future<bool> cadastrar({
-    required String nome,
-    required String email,
-    required String senha,
-    String telefone = '',
-  }) async {
-    // Simula delay de rede
-    await Future.delayed(const Duration(milliseconds: 800));
+  Usuario? get usuarioAtual => _usuarioLogado;
 
-    // Verifica se email já existe
-    final existente = _usuarios.any((u) => u.email == email);
-    if (existente) return false;
-
-    final usuario = Usuario(
-      id: _uuid.v4(),
-      nome: nome,
-      email: email,
-      senha: senha,
-      telefone: telefone,
-    );
-
-    _usuarios.add(usuario);
-    _usuarioLogado = usuario;
-    notifyListeners();
-    return true;
+  AuthService() {
+    _usuarios.add(Usuario(
+      id: 'orgao1',
+      nome: 'Fiscal Ambiental',
+      email: 'orgao@voz.animal',
+      senha: '123456',
+      tipo: TipoUsuario.orgao,
+      orgaoNome: 'IBAMA',
+    ));
   }
 
-  /// Realiza login
-  Future<bool> login({
-    required String email,
-    required String senha,
-  }) async {
-    await Future.delayed(const Duration(milliseconds: 800));
-
+  bool login(String email, String senha) {
     try {
-      final usuario = _usuarios.firstWhere(
-        (u) => u.email == email && u.validarSenha(senha),
+      final u = _usuarios.firstWhere(
+        (u) => u.email == email && u.autenticar(senha),
       );
-      _usuarioLogado = usuario;
+      _usuarioLogado = u;
       notifyListeners();
       return true;
     } catch (_) {
@@ -59,7 +35,28 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  /// Realiza logout
+  bool registrar({
+    required String nome,
+    required String email,
+    required String senha,
+    TipoUsuario tipo = TipoUsuario.cidadao,
+    String? orgaoNome,
+  }) {
+    if (_usuarios.any((u) => u.email == email)) return false;
+    final novo = Usuario(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      nome: nome,
+      email: email,
+      senha: senha,
+      tipo: tipo,
+      orgaoNome: orgaoNome,
+    );
+    _usuarios.add(novo);
+    _usuarioLogado = novo;
+    notifyListeners();
+    return true;
+  }
+
   void logout() {
     _usuarioLogado = null;
     notifyListeners();

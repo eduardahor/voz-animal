@@ -1,124 +1,53 @@
 import 'package:flutter/foundation.dart';
-import 'package:uuid/uuid.dart';
 import '../models/denuncia.dart';
 import '../models/localizacao.dart';
-import '../models/tipo_ocorrencia.dart';
 import '../models/status_denuncia.dart';
+import '../models/classificacao.dart';
 
-/// Serviço de gerenciamento de denúncias.
 class DenunciaService extends ChangeNotifier {
   final List<Denuncia> _denuncias = [];
-  final _uuid = const Uuid();
 
   List<Denuncia> get denuncias => List.unmodifiable(_denuncias);
 
-  List<Denuncia> get denunciasPendentes =>
-      _denuncias.where((d) => d.status == StatusDenuncia.pendente).toList();
+  List<Denuncia> get todasDenuncias => _denuncias;
 
-  List<Denuncia> get denunciasResolvidas =>
-      _denuncias.where((d) => d.status == StatusDenuncia.resolvida).toList();
+  int get totalDenuncias => _denuncias.length;
+  int get totalPendentes => _denuncias.where((d) => d.statusDenuncia == StatusDenuncia.pendente).length;
+  int get totalResolvidas => _denuncias.where((d) => d.statusDenuncia == StatusDenuncia.resolvida).length;
 
-  List<Denuncia> denunciasPorUsuario(String usuarioId) =>
-      _denuncias.where((d) => d.usuarioId == usuarioId).toList();
-
-  Denuncia? buscarPorId(String id) {
-    try {
-      return _denuncias.firstWhere((d) => d.id == id);
-    } catch (_) {
-      return null;
-    }
+  List<Denuncia> denunciasPorUsuario(String usuarioId) {
+    return _denuncias.where((denuncia) => denuncia.usuarioId == usuarioId).toList();
   }
 
-  /// Cria uma nova denúncia
-  Future<Denuncia> criarDenuncia({
+  void criarDenuncia({
     required String descricao,
-    required TipoOcorrencia tipoOcorrencia,
+    required String tipo,
+    required Localizacao localizacao,
     required String usuarioId,
-    required String nomeUsuario,
     String? fotoUrl,
-    Localizacao? localizacao,
-  }) async {
-    await Future.delayed(const Duration(milliseconds: 500));
-
-    final denuncia = Denuncia(
-      id: _uuid.v4(),
+  }) {
+    final d = Denuncia(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
       descricao: descricao,
-      fotoUrl: fotoUrl ?? '',
-      localizacao: localizacao ?? Localizacao.simulada(),
-      tipoOcorrencia: tipoOcorrencia,
+      tipo: tipo,
+      localizacao: localizacao,
       usuarioId: usuarioId,
-      nomeUsuario: nomeUsuario,
+      fotoUrl: fotoUrl,
     );
-
-    if (!denuncia.isValido()) {
-      throw Exception('Denúncia inválida. Verifique os campos obrigatórios.');
-    }
-
-    _denuncias.insert(0, denuncia);
+    _denuncias.add(d);
     notifyListeners();
-    return denuncia;
   }
 
-  /// Marca denúncia como resolvida
-  void marcarComoResolvida(String denunciaId) {
-    final denuncia = buscarPorId(denunciaId);
-    if (denuncia != null) {
-      denuncia.marcarComoResolvida();
-      notifyListeners();
-    }
+  void atualizarStatus(String id, StatusDenuncia novoStatus) {
+    final d = _denuncias.firstWhere((d) => d.id == id);
+    d.statusDenuncia = novoStatus;
+    d.status = novoStatus.name;
+    notifyListeners();
   }
 
-  /// Adiciona dados de exemplo
-  void carregarDadosExemplo(String usuarioId, String nomeUsuario) {
-    if (_denuncias.isNotEmpty) return;
-
-    final exemplos = [
-      Denuncia(
-        id: _uuid.v4(),
-        descricao: 'Cachorro abandonado em frente ao supermercado. Aparenta estar desnutrido e com ferimentos nas patas.',
-        fotoUrl: '',
-        localizacao: Localizacao(
-          latitude: -23.5489,
-          longitude: -46.6388,
-          endereco: 'Rua Augusta, 500 - São Paulo, SP',
-        ),
-        tipoOcorrencia: TipoOcorrencia.abandono,
-        usuarioId: usuarioId,
-        nomeUsuario: nomeUsuario,
-        dataCriacao: DateTime.now().subtract(const Duration(days: 2)),
-      ),
-      Denuncia(
-        id: _uuid.v4(),
-        descricao: 'Gato preso em árvore há mais de 24 horas. Precisa de resgate urgente.',
-        fotoUrl: '',
-        localizacao: Localizacao(
-          latitude: -23.5600,
-          longitude: -46.6500,
-          endereco: 'Praça da Sé, 100 - São Paulo, SP',
-        ),
-        tipoOcorrencia: TipoOcorrencia.pedidoAjuda,
-        usuarioId: usuarioId,
-        nomeUsuario: nomeUsuario,
-        dataCriacao: DateTime.now().subtract(const Duration(hours: 5)),
-      ),
-      Denuncia(
-        id: _uuid.v4(),
-        descricao: 'Vizinho mantém cão acorrentado sem água e comida. Situação recorrente.',
-        fotoUrl: '',
-        localizacao: Localizacao(
-          latitude: -23.5430,
-          longitude: -46.6290,
-          endereco: 'Rua Consolação, 1200 - São Paulo, SP',
-        ),
-        tipoOcorrencia: TipoOcorrencia.mausTratos,
-        usuarioId: usuarioId,
-        nomeUsuario: nomeUsuario,
-        dataCriacao: DateTime.now().subtract(const Duration(days: 1)),
-        status: StatusDenuncia.emAnalise,
-      ),
-    ];
-
-    _denuncias.addAll(exemplos);
+  void classificar(String id, ClassificacaoUrgencia c) {
+    final d = _denuncias.firstWhere((d) => d.id == id);
+    d.classificacao = c;
     notifyListeners();
   }
 }

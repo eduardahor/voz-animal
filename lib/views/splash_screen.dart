@@ -1,90 +1,57 @@
 import 'package:flutter/material.dart';
+import 'login_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
-
   @override
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _fadeAnimation;
+class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _fadeAnim;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 1500),
-      vsync: this,
-    );
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeIn),
-    );
-    _controller.forward();
-
-    Future.delayed(const Duration(seconds: 2), () {
+    _ctrl = AnimationController(vsync: this, duration: const Duration(seconds: 2));
+    _fadeAnim = Tween<double>(begin: 0, end: 1).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeIn));
+    _ctrl.forward();
+    Future.delayed(const Duration(seconds: 3), () {
       if (mounted) {
-        Navigator.pushReplacementNamed(context, '/login');
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const LoginScreen()));
       }
     });
   }
 
   @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+  void dispose() { _ctrl.dispose(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFF1B5E20), Color(0xFF4CAF50)],
+            colors: [
+              Colors.green.shade800,
+              Colors.green.shade400,
+            ],
           ),
         ),
         child: Center(
           child: FadeTransition(
-            opacity: _fadeAnimation,
+            opacity: _fadeAnim,
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.pets,
-                    size: 80,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                const Text(
-                  'Voz Animal',
-                  style: TextStyle(
-                    fontSize: 36,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                    letterSpacing: 2,
-                  ),
-                ),
+                Icon(Icons.pets, size: 100, color: Colors.white.withValues(alpha: 0.9)),
+                const SizedBox(height: 20),
+                const Text('Voz Animal', style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: Colors.white)),
                 const SizedBox(height: 8),
-                Text(
-                  'Protegendo quem não pode falar',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.white.withOpacity(0.9),
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
+                Text('Proteja. Denuncie. Salve.', style: TextStyle(fontSize: 16, color: Colors.white.withValues(alpha: 0.8))),
               ],
             ),
           ),

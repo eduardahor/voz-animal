@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
+import '../models/tipo_usuario.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -10,43 +11,26 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _senhaController = TextEditingController();
-  bool _isLoading = false;
-  bool _obscureSenha = true;
+  bool _carregando = false;
 
-  @override
-  void dispose() {
-    _emailController.dispose();
-    _senhaController.dispose();
-    super.dispose();
-  }
+  void _login() {
+    setState(() => _carregando = true);
+    final auth = Provider.of<AuthService>(context, listen: false);
+    final ok = auth.login(_emailController.text, _senhaController.text);
+    setState(() => _carregando = false);
 
-  Future<void> _login() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    setState(() => _isLoading = true);
-
-    final authService = context.read<AuthService>();
-    final sucesso = await authService.login(
-      email: _emailController.text.trim(),
-      senha: _senhaController.text,
-    );
-
-    setState(() => _isLoading = false);
-
-    if (mounted) {
-      if (sucesso) {
-        Navigator.pushReplacementNamed(context, '/home');
+    if (ok) {
+      if (auth.usuarioLogado?.tipo == TipoUsuario.orgao) {
+        Navigator.pushReplacementNamed(context, '/orgao_home');
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Email ou senha incorretos'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        Navigator.pushReplacementNamed(context, '/home');
       }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Email ou senha incorretos')),
+      );
     }
   }
 
@@ -54,95 +38,38 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: SingleChildScrollView(
+        child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const SizedBox(height: 48),
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.pets,
-                    size: 60,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.pets, size: 80, color: Colors.green),
+              const SizedBox(height: 16),
+              const Text('Voz Animal', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 32),
+              TextField(
+                controller: _emailController,
+                decoration: const InputDecoration(labelText: 'Email', prefixIcon: Icon(Icons.email)),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _senhaController,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'Senha', prefixIcon: Icon(Icons.lock)),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _carregando ? null : _login,
+                  child: _carregando ? const CircularProgressIndicator() : const Text('Entrar'),
                 ),
-                const SizedBox(height: 16),
-                Text(
-                  'Voz Animal',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Faça login para continuar',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 16, color: Colors.grey),
-                ),
-                const SizedBox(height: 40),
-                TextFormField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    prefixIcon: Icon(Icons.email_outlined),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) return 'Informe o email';
-                    if (!value.contains('@')) return 'Email inválido';
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _senhaController,
-                  obscureText: _obscureSenha,
-                  decoration: InputDecoration(
-                    labelText: 'Senha',
-                    prefixIcon: const Icon(Icons.lock_outlined),
-                    suffixIcon: IconButton(
-                      icon: Icon(_obscureSenha ? Icons.visibility : Icons.visibility_off),
-                      onPressed: () => setState(() => _obscureSenha = !_obscureSenha),
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) return 'Informe a senha';
-                    if (value.length < 6) return 'Mínimo de 6 caracteres';
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: _isLoading ? null : _login,
-                  child: _isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Text('Entrar', style: TextStyle(fontSize: 16)),
-                ),
-                const SizedBox(height: 16),
-                TextButton(
-                  onPressed: () => Navigator.pushNamed(context, '/cadastro'),
-                  child: const Text('Não tem conta? Cadastre-se'),
-                ),
-              ],
-            ),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pushNamed(context, '/registro'),
+                child: const Text('Criar conta'),
+              ),
+            ],
           ),
         ),
       ),

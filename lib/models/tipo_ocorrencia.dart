@@ -1,16 +1,13 @@
-/// Enum que define os tipos de ocorrência possíveis.
 enum TipoOcorrencia {
-  abandono('Abandono', 'animal_abandoned'),
-  mausTratos('Maus-tratos', 'animal_abuse'),
-  pedidoAjuda('Pedido de Ajuda', 'help_request'),
-  animalPerdido('Animal Perdido', 'lost_animal'),
-  animalFerido('Animal Ferido', 'injured_animal');
+  abandono('Abandono', 'pets'),
+  mausTrato('Maus-tratos', 'warning'),
+  animalPerdido('Animal Perdido', 'search'),
+  animalFerido('Animal Ferido', 'local_hospital'),
+  envenenamento('Envenenamento', 'dangerous'),
+  criacaoIlegal('Criação Ilegal', 'gavel'),
+  outros('Outros', 'more_horiz');
 
-  final String descricao;
-  final String codigo;
-
-  const TipoOcorrencia(this.descricao, this.codigo);
-
-  @override
-  String toString() => descricao;
+  final String label;
+  final String iconName;
+  const TipoOcorrencia(this.label, this.iconName);
 }
