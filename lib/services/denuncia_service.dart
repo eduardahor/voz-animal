@@ -1,124 +1,92 @@
 import 'package:flutter/foundation.dart';
-import 'package:uuid/uuid.dart';
 import '../models/denuncia.dart';
-import '../models/localizacao.dart';
 import '../models/tipo_ocorrencia.dart';
 import '../models/status_denuncia.dart';
+import '../models/classificacao_urgencia.dart';
+import '../models/localizacao.dart';
+import '../models/tipo_usuario.dart';
+import '../models/usuario.dart';
 
-/// Serviço de gerenciamento de denúncias.
 class DenunciaService extends ChangeNotifier {
   final List<Denuncia> _denuncias = [];
-  final _uuid = const Uuid();
 
-  List<Denuncia> get denuncias => List.unmodifiable(_denuncias);
+  List<Denuncia> get todas => List.unmodifiable(_denuncias);
 
-  List<Denuncia> get denunciasPendentes =>
-      _denuncias.where((d) => d.status == StatusDenuncia.pendente).toList();
-
-  List<Denuncia> get denunciasResolvidas =>
-      _denuncias.where((d) => d.status == StatusDenuncia.resolvida).toList();
-
-  List<Denuncia> denunciasPorUsuario(String usuarioId) =>
+  List<Denuncia> doUsuario(String usuarioId) =>
       _denuncias.where((d) => d.usuarioId == usuarioId).toList();
 
-  Denuncia? buscarPorId(String id) {
-    try {
-      return _denuncias.firstWhere((d) => d.id == id);
-    } catch (_) {
-      return null;
-    }
-  }
-
-  /// Cria uma nova denúncia
-  Future<Denuncia> criarDenuncia({
-    required String descricao,
-    required TipoOcorrencia tipoOcorrencia,
+/* Cria uma nova denúncia validando regras de negócio.
+Lança ArgumentError caso a denúncia seja inválida. */
+  Denuncia criar({
     required String usuarioId,
-    required String nomeUsuario,
-    String? fotoUrl,
-    Localizacao? localizacao,
-  }) async {
-    await Future.delayed(const Duration(milliseconds: 500));
+    required String descricao,
+    required TipoOcorrencia tipo,
+    required Localizacao localizacao,
+    String? fotoPath,
+  }) {
+    if (descricao.trim().length < 20) {
+      throw ArgumentError('Descrição precisa ter ao menos 20 caracteres.');
+    }
+    if (!localizacao.valido()) {
+      throw ArgumentError('Localização inválida.');
+    }
 
-    final denuncia = Denuncia(
-      id: _uuid.v4(),
-      descricao: descricao,
-      fotoUrl: fotoUrl ?? '',
-      localizacao: localizacao ?? Localizacao.simulada(),
-      tipoOcorrencia: tipoOcorrencia,
+    final d = Denuncia(
+      id: 'd-${DateTime.now().microsecondsSinceEpoch}',
       usuarioId: usuarioId,
-      nomeUsuario: nomeUsuario,
+      descricao: descricao.trim(),
+      tipo: tipo,
+      urgencia: _classificarUrgenciaInicial(tipo),
+      localizacao: localizacao,
+      fotoPath: fotoPath,
     );
 
-    if (!denuncia.isValido()) {
-      throw Exception('Denúncia inválida. Verifique os campos obrigatórios.');
+    if (!d.valido()) {
+      throw ArgumentError('Denúncia inválida.');
     }
 
-    _denuncias.insert(0, denuncia);
+    _denuncias.add(d);
     notifyListeners();
-    return denuncia;
+    return d;
   }
 
-  /// Marca denúncia como resolvida
-  void marcarComoResolvida(String denunciaId) {
-    final denuncia = buscarPorId(denunciaId);
-    if (denuncia != null) {
-      denuncia.marcarComoResolvida();
-      notifyListeners();
+  /// Apenas órgãos podem alterar o status.
+  void alterarStatus({
+    required Usuario solicitante,
+    required String denunciaId,
+    required StatusDenuncia novo,
+  }) {
+    if (solicitante.tipo != TipoUsuario.orgao) {
+      throw StateError('Apenas órgãos podem alterar o status.');
     }
+    final d = _denuncias.firstWhere((e) => e.id == denunciaId);
+    d.status = novo;
+    notifyListeners();
   }
 
-  /// Adiciona dados de exemplo
-  void carregarDadosExemplo(String usuarioId, String nomeUsuario) {
-    if (_denuncias.isNotEmpty) return;
+  Map<StatusDenuncia, int> estatisticasPorStatus() {
+    final m = <StatusDenuncia, int>{
+      for (final s in StatusDenuncia.values) s: 0,
+    };
+    for (final d in _denuncias) {
+      m[d.status] = (m[d.status] ?? 0) + 1;
+    }
+    return m;
+  }
 
-    final exemplos = [
-      Denuncia(
-        id: _uuid.v4(),
-        descricao: 'Cachorro abandonado em frente ao supermercado. Aparenta estar desnutrido e com ferimentos nas patas.',
-        fotoUrl: '',
-        localizacao: Localizacao(
-          latitude: -23.5489,
-          longitude: -46.6388,
-          endereco: 'Rua Augusta, 500 - São Paulo, SP',
-        ),
-        tipoOcorrencia: TipoOcorrencia.abandono,
-        usuarioId: usuarioId,
-        nomeUsuario: nomeUsuario,
-        dataCriacao: DateTime.now().subtract(const Duration(days: 2)),
-      ),
-      Denuncia(
-        id: _uuid.v4(),
-        descricao: 'Gato preso em árvore há mais de 24 horas. Precisa de resgate urgente.',
-        fotoUrl: '',
-        localizacao: Localizacao(
-          latitude: -23.5600,
-          longitude: -46.6500,
-          endereco: 'Praça da Sé, 100 - São Paulo, SP',
-        ),
-        tipoOcorrencia: TipoOcorrencia.pedidoAjuda,
-        usuarioId: usuarioId,
-        nomeUsuario: nomeUsuario,
-        dataCriacao: DateTime.now().subtract(const Duration(hours: 5)),
-      ),
-      Denuncia(
-        id: _uuid.v4(),
-        descricao: 'Vizinho mantém cão acorrentado sem água e comida. Situação recorrente.',
-        fotoUrl: '',
-        localizacao: Localizacao(
-          latitude: -23.5430,
-          longitude: -46.6290,
-          endereco: 'Rua Consolação, 1200 - São Paulo, SP',
-        ),
-        tipoOcorrencia: TipoOcorrencia.mausTratos,
-        usuarioId: usuarioId,
-        nomeUsuario: nomeUsuario,
-        dataCriacao: DateTime.now().subtract(const Duration(days: 1)),
-        status: StatusDenuncia.emAnalise,
-      ),
-    ];
-
-    _denuncias.addAll(exemplos);
-    notifyListeners();
+  ClassificacaoUrgencia _classificarUrgenciaInicial(TipoOcorrencia t) {
+    switch (t) {
+      case TipoOcorrencia.agressao:
+      case TipoOcorrencia.mutilacao:
+      case TipoOcorrencia.abusoSexual:
+      case TipoOcorrencia.rinha:
+        return ClassificacaoUrgencia.critica;
+      case TipoOcorrencia.traficoSilvestres:
+      case TipoOcorrencia.aprisionamento:
+        return ClassificacaoUrgencia.alta;
+      case TipoOcorrencia.abandono:
+      case TipoOcorrencia.negligencia:
+        return ClassificacaoUrgencia.media;
+    }
   }
 }

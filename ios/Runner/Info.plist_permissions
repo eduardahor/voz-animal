@@ -1,0 +1,5 @@
+<!-- Adicionar dentro do <dict> no Info.plist -->
+<key>NSLocationWhenInUseUsageDescription</key>
+<string>O Voz Animal precisa da sua localização para registrar onde ocorreu a denúncia.</string>
+<key>NSLocationAlwaysUsageDescription</key>
+<string>O Voz Animal precisa da sua localização para registrar onde ocorreu a denúncia.</string>

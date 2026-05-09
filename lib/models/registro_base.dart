@@ -1,28 +1,19 @@
-import 'package:voz_animal/models/status_denuncia.dart';
-
-/// Classe abstrata base que demonstra ABSTRAÇÃO.
-/// Define a interface comum para registros no sistema.
+/// Classe abstrata base para qualquer registro persistente do domínio.
+/// Garante encapsulamento de id e data de criação imutável.
 abstract class RegistroBase {
-  final String id;
-  final DateTime dataCriacao;
-  StatusDenuncia _status;
+  final String _id;
+  final DateTime _criadoEm;
 
-  RegistroBase({
-    required this.id,
-    required this.dataCriacao,
-    StatusDenuncia status = StatusDenuncia.pendente,
-  }) : _status = status;
+  RegistroBase({required String id, DateTime? criadoEm})
+      : _id = id,
+        _criadoEm = criadoEm ?? DateTime.now();
 
-  StatusDenuncia get status => _status;
+  String get id => _id;
+  DateTime get criadoEm => _criadoEm;
 
-  /// Método abstrato — cada subclasse implementa (polimorfismo)
-  String obterResumo();
+  /// Cada subclasse deve validar a si mesma.
+  bool valido();
 
-  /// Método abstrato para validação
-  bool isValido();
-
-  /// Template method com comportamento padrão
-  void atualizarStatus(StatusDenuncia novoStatus) {
-    _status = novoStatus;
-  }
+  /// Resumo textual usado em listas.
+  String resumo();
 }
