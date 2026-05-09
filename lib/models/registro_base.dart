@@ -1,14 +1,19 @@
+/// Classe abstrata base para qualquer registro persistente do domínio.
+/// Garante encapsulamento de id e data de criação imutável.
 abstract class RegistroBase {
-  String id;
-  String status;
-  final DateTime dataCriacao;
+  final String _id;
+  final DateTime _criadoEm;
 
-  RegistroBase({
-    required this.id,
-    required this.status,
-    DateTime? dataCriacao,
-  }) : dataCriacao = dataCriacao ?? DateTime.now();
+  RegistroBase({required String id, DateTime? criadoEm})
+      : _id = id,
+        _criadoEm = criadoEm ?? DateTime.now();
 
-  String get resumo;
-  bool validar();
+  String get id => _id;
+  DateTime get criadoEm => _criadoEm;
+
+  /// Cada subclasse deve validar a si mesma.
+  bool valido();
+
+  /// Resumo textual usado em listas.
+  String resumo();
 }

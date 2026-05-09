@@ -1,53 +1,92 @@
 import 'package:flutter/foundation.dart';
 import '../models/denuncia.dart';
-import '../models/localizacao.dart';
+import '../models/tipo_ocorrencia.dart';
 import '../models/status_denuncia.dart';
-import '../models/classificacao.dart';
+import '../models/classificacao_urgencia.dart';
+import '../models/localizacao.dart';
+import '../models/tipo_usuario.dart';
+import '../models/usuario.dart';
 
 class DenunciaService extends ChangeNotifier {
   final List<Denuncia> _denuncias = [];
 
-  List<Denuncia> get denuncias => List.unmodifiable(_denuncias);
+  List<Denuncia> get todas => List.unmodifiable(_denuncias);
 
-  List<Denuncia> get todasDenuncias => _denuncias;
+  List<Denuncia> doUsuario(String usuarioId) =>
+      _denuncias.where((d) => d.usuarioId == usuarioId).toList();
 
-  int get totalDenuncias => _denuncias.length;
-  int get totalPendentes => _denuncias.where((d) => d.statusDenuncia == StatusDenuncia.pendente).length;
-  int get totalResolvidas => _denuncias.where((d) => d.statusDenuncia == StatusDenuncia.resolvida).length;
-
-  List<Denuncia> denunciasPorUsuario(String usuarioId) {
-    return _denuncias.where((denuncia) => denuncia.usuarioId == usuarioId).toList();
-  }
-
-  void criarDenuncia({
-    required String descricao,
-    required String tipo,
-    required Localizacao localizacao,
+/* Cria uma nova denúncia validando regras de negócio.
+Lança ArgumentError caso a denúncia seja inválida. */
+  Denuncia criar({
     required String usuarioId,
-    String? fotoUrl,
+    required String descricao,
+    required TipoOcorrencia tipo,
+    required Localizacao localizacao,
+    String? fotoPath,
   }) {
+    if (descricao.trim().length < 20) {
+      throw ArgumentError('Descrição precisa ter ao menos 20 caracteres.');
+    }
+    if (!localizacao.valido()) {
+      throw ArgumentError('Localização inválida.');
+    }
+
     final d = Denuncia(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      descricao: descricao,
-      tipo: tipo,
-      localizacao: localizacao,
+      id: 'd-${DateTime.now().microsecondsSinceEpoch}',
       usuarioId: usuarioId,
-      fotoUrl: fotoUrl,
+      descricao: descricao.trim(),
+      tipo: tipo,
+      urgencia: _classificarUrgenciaInicial(tipo),
+      localizacao: localizacao,
+      fotoPath: fotoPath,
     );
+
+    if (!d.valido()) {
+      throw ArgumentError('Denúncia inválida.');
+    }
+
     _denuncias.add(d);
     notifyListeners();
+    return d;
   }
 
-  void atualizarStatus(String id, StatusDenuncia novoStatus) {
-    final d = _denuncias.firstWhere((d) => d.id == id);
-    d.statusDenuncia = novoStatus;
-    d.status = novoStatus.name;
+  /// Apenas órgãos podem alterar o status.
+  void alterarStatus({
+    required Usuario solicitante,
+    required String denunciaId,
+    required StatusDenuncia novo,
+  }) {
+    if (solicitante.tipo != TipoUsuario.orgao) {
+      throw StateError('Apenas órgãos podem alterar o status.');
+    }
+    final d = _denuncias.firstWhere((e) => e.id == denunciaId);
+    d.status = novo;
     notifyListeners();
   }
 
-  void classificar(String id, ClassificacaoUrgencia c) {
-    final d = _denuncias.firstWhere((d) => d.id == id);
-    d.classificacao = c;
-    notifyListeners();
+  Map<StatusDenuncia, int> estatisticasPorStatus() {
+    final m = <StatusDenuncia, int>{
+      for (final s in StatusDenuncia.values) s: 0,
+    };
+    for (final d in _denuncias) {
+      m[d.status] = (m[d.status] ?? 0) + 1;
+    }
+    return m;
+  }
+
+  ClassificacaoUrgencia _classificarUrgenciaInicial(TipoOcorrencia t) {
+    switch (t) {
+      case TipoOcorrencia.agressao:
+      case TipoOcorrencia.mutilacao:
+      case TipoOcorrencia.abusoSexual:
+      case TipoOcorrencia.rinha:
+        return ClassificacaoUrgencia.critica;
+      case TipoOcorrencia.traficoSilvestres:
+      case TipoOcorrencia.aprisionamento:
+        return ClassificacaoUrgencia.alta;
+      case TipoOcorrencia.abandono:
+      case TipoOcorrencia.negligencia:
+        return ClassificacaoUrgencia.media;
+    }
   }
 }

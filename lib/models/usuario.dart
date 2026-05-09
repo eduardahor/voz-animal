@@ -1,24 +1,20 @@
 import 'tipo_usuario.dart';
 
+/// Modelo de usuário autenticado (cidadão ou órgão).
 class Usuario {
-  String id;
+  final String id;
   String nome;
   String email;
-  final String _senha;
+  String senha;
+  String? orgaoNome;
   final TipoUsuario tipo;
-  final String? orgaoNome;
-  final DateTime dataCadastro;
 
   Usuario({
     required this.id,
     required this.nome,
     required this.email,
-    required String senha,
-    this.tipo = TipoUsuario.cidadao,
+    required this.senha,
     this.orgaoNome,
-  })  : _senha = senha,
-        dataCadastro = DateTime.now();
-
-  bool verificarSenha(String senha) => _senha == senha;
-  bool autenticar(String senha) => _senha == senha;
+    required this.tipo,
+  });
 }

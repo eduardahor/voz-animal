@@ -1,36 +1,38 @@
-import 'localizacao.dart';
 import 'registro_base.dart';
+import 'tipo_ocorrencia.dart';
 import 'status_denuncia.dart';
-import 'classificacao.dart';
+import 'classificacao_urgencia.dart';
+import 'localizacao.dart';
 
-
+/// Denúncia registrada por um cidadão.
 class Denuncia extends RegistroBase {
-  final String descricao;
-  final String tipo;
-  final Localizacao localizacao;
   final String usuarioId;
-  final String? fotoUrl;
-  final String? observacaoOrgao;
-  StatusDenuncia statusDenuncia;
-  ClassificacaoUrgencia? classificacao;
+  String descricao;
+  TipoOcorrencia tipo;
+  StatusDenuncia status;
+  ClassificacaoUrgencia urgencia;
+  String? fotoPath;
+  Localizacao? localizacao;
 
   Denuncia({
     required super.id,
+    required this.usuarioId,
     required this.descricao,
     required this.tipo,
-    required this.localizacao,
-    required this.usuarioId,
-    this.fotoUrl,
-    this.observacaoOrgao,
-    this.statusDenuncia = StatusDenuncia.pendente,
-    this.classificacao,
-  }) : super(status: StatusDenuncia.pendente.name);
-
-  String get tipoOcorrencia => tipo;
+    required this.urgencia,
+    this.status = StatusDenuncia.emAnalise,
+    this.fotoPath,
+    this.localizacao,
+    super.criadoEm,
+  });
 
   @override
-  String get resumo => '$tipo: $descricao';
+  bool valido() {
+    if (descricao.trim().length < 20) return false;
+    if (localizacao == null || !localizacao!.valido()) return false;
+    return true;
+  }
 
   @override
-  bool validar() => descricao.isNotEmpty && tipo.isNotEmpty;
+  String resumo() => '${tipo.label} — ${status.label} (${urgencia.label})';
 }

@@ -1,11 +1,16 @@
-enum StatusDenuncia {
-  pendente('Pendente'),
-  emAnalise('Em Análise'),
-  emAndamento('Em Andamento'),
-  resolvida('Resolvida'),
-  arquivada('Arquivada');
+enum StatusDenuncia { emAnalise, emAndamento, resolvida, arquivada }
 
-  final String label;
-  const StatusDenuncia(this.label);
-
+extension StatusDenunciaX on StatusDenuncia {
+  String get label {
+    switch (this) {
+      case StatusDenuncia.emAnalise:
+        return 'Em análise';
+      case StatusDenuncia.emAndamento:
+        return 'Em andamento';
+      case StatusDenuncia.resolvida:
+        return 'Resolvida';
+      case StatusDenuncia.arquivada:
+        return 'Arquivada';
+    }
+  }
 }
