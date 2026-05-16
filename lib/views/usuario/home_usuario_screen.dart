@@ -6,6 +6,7 @@ import '../../services/denuncia_service.dart';
 import '../auth/escolha_perfil_screen.dart';
 import 'minhas_denuncias_screen.dart';
 import 'nova_denuncia_screen.dart';
+import 'perfil_screen.dart';
 
 class HomeUsuarioScreen extends StatelessWidget {
   const HomeUsuarioScreen({super.key});
@@ -29,7 +30,16 @@ class HomeUsuarioScreen extends StatelessWidget {
         foregroundColor: Colors.white,
         actions: [
           IconButton(
+            icon: const Icon(Icons.account_circle_outlined),
+            tooltip: 'Meu Perfil',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const PerfilScreen()),
+            ),
+          ),
+          IconButton(
             icon: const Icon(Icons.logout),
+            tooltip: 'Sair',
             onPressed: () {
               auth.logout();
               Navigator.pushAndRemoveUntil(

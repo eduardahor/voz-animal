@@ -6,6 +6,7 @@ import '../../models/tipo_ocorrencia.dart';
 import '../../services/auth_service.dart';
 import '../../services/denuncia_service.dart';
 import '../foto_denuncia.dart';
+import '../usuario/perfil_screen.dart';
 import 'detalhe_denuncia_orgao_screen.dart';
 import 'relatorios_screen.dart';
 
@@ -34,7 +35,16 @@ class HomeOrgaoScreen extends StatelessWidget {
             ),
           ),
           IconButton(
+            icon: const Icon(Icons.account_circle_outlined),
+            tooltip: 'Meu Perfil',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const PerfilScreen()),
+            ),
+          ),
+          IconButton(
             icon: const Icon(Icons.logout),
+            tooltip: 'Sair',
             onPressed: () {
               context.read<AuthService>().logout();
             },

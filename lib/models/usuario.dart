@@ -7,6 +7,8 @@ class Usuario {
   String email;
   String senha;
   String? orgaoNome;
+  String? cnpj;   // apenas órgão
+  String? cpf;    // apenas cidadão
   final TipoUsuario tipo;
 
   Usuario({
@@ -15,6 +17,8 @@ class Usuario {
     required this.email,
     required this.senha,
     this.orgaoNome,
+    this.cnpj,
+    this.cpf,
     required this.tipo,
   });
 }
