@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/denuncia.dart';
 import '../../models/status_denuncia.dart';
-import '../../models/tipo_ocorrencia.dart'; // <-- Faltava isso!
-import '../../models/classificacao_urgencia.dart'; // <-- E isso!
+import '../../models/tipo_ocorrencia.dart';
+import '../../models/classificacao_urgencia.dart';
 import '../../services/auth_service.dart';
 import '../../services/denuncia_service.dart';
 
@@ -40,7 +40,7 @@ class _DetalhesDenunciaOrgaoScreenState extends State<DetalhesDenunciaOrgaoScree
     
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(novoStatus == StatusDenuncia.emAndamento ? 'Você assumiu este caso!' : 'Status atualizado!'), 
+        content: Text(novoStatus == StatusDenuncia.emAndamento ? 'Caso movido para em andamento!' : 'Status atualizado com sucesso!'), 
         backgroundColor: Colors.green
       ),
     );
@@ -103,7 +103,7 @@ class _DetalhesDenunciaOrgaoScreenState extends State<DetalhesDenunciaOrgaoScree
                 ),
               ),
             ] else ...[
-              const Text('Finalizar Caso:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const Text('Gerenciar/Atualizar Status:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
               DropdownButtonFormField<StatusDenuncia>(
                 value: _statusSelecionado,
@@ -124,7 +124,7 @@ class _DetalhesDenunciaOrgaoScreenState extends State<DetalhesDenunciaOrgaoScree
                   icon: const Icon(Icons.save),
                   label: _salvando
                       ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text('SALVAR NOVO STATUS', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      : const Text('SALVAR ALTERAÇÕES', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green.shade700,
                     foregroundColor: Colors.white,

@@ -1,50 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../models/tipo_usuario.dart';
 import '../../services/auth_service.dart';
 
-class _CpfInputFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-      TextEditingValue oldValue, TextEditingValue newValue) {
-    final digits = newValue.text.replaceAll(RegExp(r'\D'), '');
-    final buf = StringBuffer();
-    for (var i = 0; i < digits.length && i < 11; i++) {
-      if (i == 3 || i == 6) buf.write('.');
-      if (i == 9) buf.write('-');
-      buf.write(digits[i]);
-    }
-    final text = buf.toString();
-    return TextEditingValue(
-      text: text,
-      selection: TextSelection.collapsed(offset: text.length),
-    );
-  }
-}
-
-class _CnpjInputFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-      TextEditingValue oldValue, TextEditingValue newValue) {
-    final digits = newValue.text.replaceAll(RegExp(r'\D'), '');
-    final buf = StringBuffer();
-    for (var i = 0; i < digits.length && i < 14; i++) {
-      if (i == 2 || i == 5) buf.write('.');
-      if (i == 8) buf.write('/');
-      if (i == 12) buf.write('-');
-      buf.write(digits[i]);
-    }
-    final text = buf.toString();
-    return TextEditingValue(
-      text: text,
-      selection: TextSelection.collapsed(offset: text.length),
-    );
-  }
-}
-
 class CadastroScreen extends StatefulWidget {
   final TipoUsuario tipo;
+
   const CadastroScreen({super.key, required this.tipo});
 
   @override
@@ -56,274 +17,141 @@ class _CadastroScreenState extends State<CadastroScreen> {
   final _nome = TextEditingController();
   final _email = TextEditingController();
   final _senha = TextEditingController();
-  final _confirmaSenha = TextEditingController();
   final _orgao = TextEditingController();
   final _cnpj = TextEditingController();
-  final _cpf = TextEditingController();
 
-  bool _senhaVisivel = false;
-  bool _confirmaSenhaVisivel = false;
   bool _carregando = false;
-
-  Color get _cor => widget.tipo == TipoUsuario.cidadao
-      ? Colors.blue.shade700
-      : Colors.green.shade700;
-
-  bool get _isOrgao => widget.tipo == TipoUsuario.orgao;
 
   @override
   void dispose() {
     _nome.dispose();
     _email.dispose();
     _senha.dispose();
-    _confirmaSenha.dispose();
     _orgao.dispose();
     _cnpj.dispose();
-    _cpf.dispose();
     super.dispose();
   }
 
   Future<void> _cadastrar() async {
     if (!_formKey.currentState!.validate()) return;
+
     setState(() => _carregando = true);
 
-    await Future.delayed(const Duration(milliseconds: 300));
-    if (!mounted) return;
+    final auth = Provider.of<AuthService>(context, listen: false);
+    final isOrgao = widget.tipo == TipoUsuario.orgao;
 
-    final auth = context.read<AuthService>();
-    final erro = auth.cadastrar(
+    final erro = await auth.cadastrar(
       nome: _nome.text.trim(),
       email: _email.text.trim(),
       senha: _senha.text,
       tipo: widget.tipo,
-      orgaoNome: _isOrgao ? _orgao.text.trim() : null,
-      cnpj: _isOrgao ? _cnpj.text.trim() : null,
-      cpf: !_isOrgao ? _cpf.text.trim() : null,
+      orgaoNome: isOrgao ? _orgao.text.trim() : null,
+      cnpj: isOrgao ? _cnpj.text.trim() : null,
     );
 
-    setState(() => _carregando = false);
     if (!mounted) return;
 
+    setState(() => _carregando = false);
+
     if (erro != null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(erro)));
-    } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Cadastro realizado com sucesso!'),
-          backgroundColor: Colors.green,
+        SnackBar(
+          content: Text(erro), 
+          backgroundColor: Colors.red,
         ),
       );
-      Navigator.popUntil(context, (r) => r.isFirst);
+    } else {
+      // Cadastro feito com sucesso! Retorna para o início.
+      Navigator.popUntil(context, (route) => route.isFirst);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final isOrgao = widget.tipo == TipoUsuario.orgao;
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isOrgao ? 'Cadastro do Órgão' : 'Cadastro do Cidadão'),
-        backgroundColor: _cor,
-        foregroundColor: Colors.white,
+        title: Text(isOrgao ? 'Cadastro de Órgão' : 'Cadastro de Cidadão'),
       ),
-      body: SafeArea(
+      body: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(24.0),
           child: Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Icon(
-                  _isOrgao ? Icons.verified_user : Icons.person_add,
-                  size: 64,
-                  color: _cor,
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  _isOrgao ? 'Novo Órgão Responsável' : 'Nova Conta de Cidadão',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: _cor,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  'Preencha os dados abaixo para criar sua conta.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.black54, fontSize: 14),
-                ),
-                const SizedBox(height: 28),
-
-                // Nome completo
                 TextFormField(
                   controller: _nome,
-                  textCapitalization: TextCapitalization.words,
-                  decoration: const InputDecoration(
-                    labelText: 'Nome completo',
-                    prefixIcon: Icon(Icons.badge_outlined),
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: isOrgao ? 'Nome do Responsável' : 'Nome Completo',
+                    border: const OutlineInputBorder(),
                   ),
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Informe o nome' : null,
+                  validator: (value) =>
+                      value == null || value.trim().isEmpty ? 'Informe o nome' : null,
                 ),
                 const SizedBox(height: 16),
-
-                // CPF — apenas para cidadão
-                if (!_isOrgao) ...[
-                  TextFormField(
-                    controller: _cpf,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [_CpfInputFormatter()],
-                    decoration: const InputDecoration(
-                      labelText: 'CPF',
-                      hintText: '000.000.000-00',
-                      prefixIcon: Icon(Icons.badge_outlined),
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (v) {
-                      final digits = (v ?? '').replaceAll(RegExp(r'\D'), '');
-                      if (digits.length != 11) return 'CPF inválido (11 dígitos)';
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                ],
-
-                // Campos exclusivos para órgão
-                if (_isOrgao) ...[
+                
+                // Campos exclusivos para Órgão
+                if (isOrgao) ...[
                   TextFormField(
                     controller: _orgao,
-                    textCapitalization: TextCapitalization.words,
                     decoration: const InputDecoration(
-                      labelText: 'Nome do órgão',
-                      prefixIcon: Icon(Icons.business_outlined),
+                      labelText: 'Nome do Órgão (Ex: ONG Patinhas)',
                       border: OutlineInputBorder(),
                     ),
-                    validator: (v) => (v == null || v.trim().isEmpty)
-                        ? 'Informe o nome do órgão'
-                        : null,
+                    validator: (value) =>
+                        value == null || value.trim().isEmpty ? 'Informe o órgão' : null,
                   ),
                   const SizedBox(height: 16),
-
                   TextFormField(
                     controller: _cnpj,
                     keyboardType: TextInputType.number,
-                    inputFormatters: [_CnpjInputFormatter()],
                     decoration: const InputDecoration(
-                      labelText: 'CNPJ',
-                      hintText: '00.000.000/0000-00',
-                      prefixIcon: Icon(Icons.numbers_outlined),
+                      labelText: 'CNPJ (Opcional)',
                       border: OutlineInputBorder(),
                     ),
-                    validator: (v) {
-                      final digits =
-                          (v ?? '').replaceAll(RegExp(r'\D'), '');
-                      if (digits.length != 14) return 'CNPJ inválido (14 dígitos)';
-                      return null;
-                    },
                   ),
                   const SizedBox(height: 16),
                 ],
 
-                // E-mail
                 TextFormField(
                   controller: _email,
                   keyboardType: TextInputType.emailAddress,
                   decoration: const InputDecoration(
                     labelText: 'E-mail',
-                    prefixIcon: Icon(Icons.email_outlined),
                     border: OutlineInputBorder(),
                   ),
-                  validator: (v) => (v == null || !v.contains('@'))
-                      ? 'E-mail inválido'
+                  validator: (value) => value == null || !value.contains('@')
+                      ? 'Informe um e-mail válido'
                       : null,
                 ),
                 const SizedBox(height: 16),
-
-                // Senha
                 TextFormField(
                   controller: _senha,
-                  obscureText: !_senhaVisivel,
-                  decoration: InputDecoration(
-                    labelText: 'Senha',
-                    prefixIcon: const Icon(Icons.lock_outline),
-                    border: const OutlineInputBorder(),
-                    suffixIcon: IconButton(
-                      icon: Icon(_senhaVisivel
-                          ? Icons.visibility_off
-                          : Icons.visibility),
-                      onPressed: () =>
-                          setState(() => _senhaVisivel = !_senhaVisivel),
-                    ),
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Senha (mínimo 8 caracteres)',
+                    border: OutlineInputBorder(),
                   ),
-                  validator: (v) => (v == null || v.length < 8)
-                      ? 'Mínimo de 8 caracteres'
+                  validator: (value) => value == null || value.length < 8
+                      ? 'A senha deve ter no mínimo 8 caracteres'
                       : null,
                 ),
-                const SizedBox(height: 16),
-
-                // Confirmar senha
-                TextFormField(
-                  controller: _confirmaSenha,
-                  obscureText: !_confirmaSenhaVisivel,
-                  decoration: InputDecoration(
-                    labelText: 'Confirmar senha',
-                    prefixIcon: const Icon(Icons.lock_outline),
-                    border: const OutlineInputBorder(),
-                    suffixIcon: IconButton(
-                      icon: Icon(_confirmaSenhaVisivel
-                          ? Icons.visibility_off
-                          : Icons.visibility),
-                      onPressed: () => setState(
-                          () => _confirmaSenhaVisivel = !_confirmaSenhaVisivel),
-                    ),
-                  ),
-                  validator: (v) {
-                    if (v == null || v.isEmpty) return 'Confirme sua senha';
-                    if (v != _senha.text) return 'As senhas não coincidem';
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 28),
-
+                const SizedBox(height: 24),
                 SizedBox(
-                  height: 48,
+                  height: 50,
                   child: ElevatedButton(
+                    onPressed: _carregando ? null : _cadastrar,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: _cor,
+                      backgroundColor: Colors.green,
                       foregroundColor: Colors.white,
                     ),
-                    onPressed: _carregando ? null : _cadastrar,
                     child: _carregando
                         ? const CircularProgressIndicator(color: Colors.white)
-                        : const Text(
-                            'CRIAR CONTA',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
+                        : const Text('Cadastrar', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   ),
-                ),
-                const SizedBox(height: 16),
-
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text('Já tem uma conta? ',
-                        style: TextStyle(color: Colors.black54)),
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: Text(
-                        'Fazer login',
-                        style: TextStyle(
-                          color: _cor,
-                          fontWeight: FontWeight.bold,
-                          decoration: TextDecoration.underline,
-                        ),
-                      ),
-                    ),
-                  ],
                 ),
               ],
             ),

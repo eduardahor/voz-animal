@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/status_denuncia.dart';
+import '../../models/denuncia.dart';
 import '../../services/auth_service.dart';
 import '../../services/denuncia_service.dart';
 import '../auth/escolha_perfil_screen.dart';
@@ -14,14 +15,10 @@ class HomeUsuarioScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthService>();
-    final svc = context.watch<DenunciaService>();
     final usuario = auth.usuarioAtual!;
-    final minhas = svc.doUsuario(usuario.id);
-
-    final emAnalise =
-        minhas.where((d) => d.status == StatusDenuncia.emAnalise).length;
-    final resolvidas =
-        minhas.where((d) => d.status == StatusDenuncia.resolvida).length;
+    
+    // Puxa o fluxo de denúncias ao vivo do Firebase
+    final streamMinhasDenuncias = context.read<DenunciaService>().minhasDenuncias(usuario.id);
 
     return Scaffold(
       appBar: AppBar(
@@ -40,12 +37,12 @@ class HomeUsuarioScreen extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Sair',
-            onPressed: () {
-              auth.logout();
+            onPressed: () async {
+              await auth.logout();
+              if (!context.mounted) return;
               Navigator.pushAndRemoveUntil(
                 context,
-                MaterialPageRoute(
-                    builder: (_) => const EscolhaPerfilScreen()),
+                MaterialPageRoute(builder: (_) => const EscolhaPerfilScreen()),
                 (_) => false,
               );
             },
@@ -58,38 +55,44 @@ class HomeUsuarioScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text('Olá, ${usuario.nome}',
-                style: const TextStyle(
-                    fontSize: 22, fontWeight: FontWeight.bold)),
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
             const SizedBox(height: 4),
             const Text('Sua voz protege quem não pode falar.',
                 style: TextStyle(color: Colors.black54)),
             const SizedBox(height: 24),
 
-            // Estatísticas resumidas
-            Row(
-              children: [
-                _Stat(label: 'Total', valor: '${minhas.length}'),
-                const SizedBox(width: 8),
-                _Stat(
-                    label: 'Em análise',
-                    valor: '$emAnalise',
-                    cor: Colors.orange),
-                const SizedBox(width: 8),
-                _Stat(
-                    label: 'Resolvidas',
-                    valor: '$resolvidas',
-                    cor: Colors.green),
-              ],
+            // Painel de Estatísticas
+            StreamBuilder<List<Denuncia>>(
+              stream: streamMinhasDenuncias,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                final minhas = snapshot.data ?? [];
+                final emAnalise = minhas.where((d) => d.status == StatusDenuncia.emAnalise).length;
+                final resolvidas = minhas.where((d) => d.status == StatusDenuncia.resolvida).length;
+
+                return Row(
+                  children: [
+                    _Stat(label: 'Total', valor: '${minhas.length}'),
+                    const SizedBox(width: 8),
+                    _Stat(label: 'Em análise', valor: '$emAnalise', cor: Colors.orange),
+                    const SizedBox(width: 8),
+                    _Stat(label: 'Resolvidas', valor: '$resolvidas', cor: Colors.green),
+                  ],
+                );
+              },
             ),
+            
             const SizedBox(height: 32),
 
-            // Botão circular DENUNCIE AQUI
+            // Botão DENUNCIE AQUI
             Center(
               child: GestureDetector(
                 onTap: () => Navigator.push(
                   context,
-                  MaterialPageRoute(
-                      builder: (_) => const NovaDenunciaScreen()),
+                  MaterialPageRoute(builder: (_) => const NovaDenunciaScreen()),
                 ),
                 child: Container(
                   width: 180,
@@ -102,26 +105,16 @@ class HomeUsuarioScreen extends StatelessWidget {
                       end: Alignment.bottomRight,
                     ),
                     boxShadow: [
-                      BoxShadow(
-                        color: Colors.red.withValues(alpha: 0.4),
-                        blurRadius: 20,
-                        spreadRadius: 4,
-                      ),
+                      BoxShadow(color: Colors.red.withOpacity(0.4), blurRadius: 20, spreadRadius: 4),
                     ],
                   ),
                   child: const Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.campaign,
-                          color: Colors.white, size: 56),
+                      Icon(Icons.campaign, color: Colors.white, size: 56),
                       SizedBox(height: 8),
-                      Text('DENUNCIE\nAQUI',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                          )),
+                      Text('DENUNCIE\nAQUI', textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
                     ],
                   ),
                 ),
@@ -129,20 +122,16 @@ class HomeUsuarioScreen extends StatelessWidget {
             ),
             const SizedBox(height: 32),
 
-            // Card minhas denúncias
+            // Botão de Minhas Denúncias
             Card(
               child: ListTile(
-                leading: Icon(Icons.list_alt,
-                    color: Colors.blue.shade700, size: 32),
-                title: const Text('Minhas Denúncias',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle:
-                    Text('Acompanhe o status das suas ${minhas.length} denúncias'),
+                leading: Icon(Icons.list_alt, color: Colors.blue.shade700, size: 32),
+                title: const Text('Minhas Denúncias', style: TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: const Text('Acompanhe o status das suas denúncias'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => Navigator.push(
                   context,
-                  MaterialPageRoute(
-                      builder: (_) => const MinhasDenunciasScreen()),
+                  MaterialPageRoute(builder: (_) => const MinhasDenunciasScreen()),
                 ),
               ),
             ),
@@ -166,16 +155,12 @@ class _Stat extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: c.withValues(alpha: 0.1),
+          color: c.withOpacity(0.1),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
           children: [
-            Text(valor,
-                style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: c)),
+            Text(valor, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: c)),
             Text(label, style: const TextStyle(fontSize: 12)),
           ],
         ),

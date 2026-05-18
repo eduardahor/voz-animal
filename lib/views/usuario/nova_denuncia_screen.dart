@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/tipo_ocorrencia.dart';
 import '../../models/localizacao.dart';
+import '../../models/classificacao_urgencia.dart'; // <-- Adicionado para calcular a urgência do Firebase
+import '../../models/denuncia.dart'; // <-- Adicionado para instanciar a classe Denuncia corretamente
 import '../../services/auth_service.dart';
 import '../../services/denuncia_service.dart';
 import '../../services/foto_service.dart';
@@ -30,6 +32,23 @@ class _NovaDenunciaScreenState extends State<NovaDenunciaScreen> {
       _tipo != null &&
       _localizacao != null &&
       _localizacao!.valido();
+
+  // Função interna para classificar a urgência antes de mandar ao Firebase
+  ClassificacaoUrgencia _definirUrgenciaInicial(TipoOcorrencia t) {
+    switch (t) {
+      case TipoOcorrencia.agressao:
+      case TipoOcorrencia.mutilacao:
+      case TipoOcorrencia.abusoSexual:
+      case TipoOcorrencia.rinha:
+        return ClassificacaoUrgencia.critica;
+      case TipoOcorrencia.traficoSilvestres:
+      case TipoOcorrencia.aprisionamento:
+        return ClassificacaoUrgencia.alta;
+      case TipoOcorrencia.abandono:
+      case TipoOcorrencia.negligencia:
+        return ClassificacaoUrgencia.media;
+    }
+  }
 
   Future<void> _escolherFoto() async {
     final origem = await showModalBottomSheet<bool>(
@@ -67,7 +86,8 @@ class _NovaDenunciaScreenState extends State<NovaDenunciaScreen> {
     if (loc != null) setState(() => _localizacao = loc);
   }
 
-  void _salvar() {
+  // ─── LÓGICA DO FIREBASE ATUALIZADA AQUI ──────────────────────────────
+  Future<void> _salvar() async {
     final faltando = <String>[];
     if (_descricao.text.trim().length < 20) {
       faltando.add('Descrição (mín. 20 caracteres)');
@@ -86,20 +106,29 @@ class _NovaDenunciaScreenState extends State<NovaDenunciaScreen> {
     setState(() => _salvando = true);
     try {
       final usuario = context.read<AuthService>().usuarioAtual!;
-      context.read<DenunciaService>().criar(
-            usuarioId: usuario.id,
-            descricao: _descricao.text,
-            tipo: _tipo!,
-            localizacao: _localizacao!,
-            fotoPath: _fotoPath,
-          );
+      
+      // 1. Montamos o objeto Denuncia completo
+      final novaDenuncia = Denuncia(
+        id: 'd-${DateTime.now().millisecondsSinceEpoch}',
+        usuarioId: usuario.id,
+        descricao: _descricao.text.trim(),
+        tipo: _tipo!,
+        urgencia: _definirUrgenciaInicial(_tipo!),
+        localizacao: _localizacao!,
+        fotoPath: _fotoPath,
+      );
+
+      // 2. Disparamos para o serviço salvar permanentemente no Firestore
+      await context.read<DenunciaService>().criarDenuncia(novaDenuncia);
+
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Denúncia registrada com sucesso!')),
+        const SnackBar(content: Text('Denúncia registrada com sucesso!'), backgroundColor: Colors.green),
       );
       Navigator.pop(context);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro: $e')),
+        SnackBar(content: Text('Erro ao salvar no banco: $e'), backgroundColor: Colors.red),
       );
     } finally {
       if (mounted) setState(() => _salvando = false);
@@ -161,7 +190,7 @@ class _NovaDenunciaScreenState extends State<NovaDenunciaScreen> {
                   style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               DropdownButtonFormField<TipoOcorrencia>(
-                initialValue: _tipo,
+                value: _tipo, // Corrigido de initialValue para value (padrão estável do Flutter)
                 decoration: const InputDecoration(
                   border: OutlineInputBorder(),
                   hintText: 'Selecione o tipo',

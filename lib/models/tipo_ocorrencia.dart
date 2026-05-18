@@ -10,6 +10,7 @@ enum TipoOcorrencia {
   abusoSexual,
 }
 
+// É ESTA EXTENSÃO AQUI QUE O SEU CÓDIGO NÃO ESTÁ ACHANDO!
 extension TipoOcorrenciaX on TipoOcorrencia {
   String get label {
     switch (this) {

@@ -1,92 +1,84 @@
 import 'package:flutter/foundation.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/denuncia.dart';
-import '../models/tipo_ocorrencia.dart';
 import '../models/status_denuncia.dart';
-import '../models/classificacao_urgencia.dart';
-import '../models/localizacao.dart';
-import '../models/tipo_usuario.dart';
-import '../models/usuario.dart';
 
 class DenunciaService extends ChangeNotifier {
-  final List<Denuncia> _denuncias = [];
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  List<Denuncia> get todas => List.unmodifiable(_denuncias);
-
-  List<Denuncia> doUsuario(String usuarioId) =>
-      _denuncias.where((d) => d.usuarioId == usuarioId).toList();
-
-/* Cria uma nova denúncia validando regras de negócio.
-Lança ArgumentError caso a denúncia seja inválida. */
-  Denuncia criar({
-    required String usuarioId,
-    required String descricao,
-    required TipoOcorrencia tipo,
-    required Localizacao localizacao,
-    String? fotoPath,
-  }) {
-    if (descricao.trim().length < 20) {
-      throw ArgumentError('Descrição precisa ter ao menos 20 caracteres.');
-    }
-    if (!localizacao.valido()) {
-      throw ArgumentError('Localização inválida.');
-    }
-
-    final d = Denuncia(
-      id: 'd-${DateTime.now().microsecondsSinceEpoch}',
-      usuarioId: usuarioId,
-      descricao: descricao.trim(),
-      tipo: tipo,
-      urgencia: _classificarUrgenciaInicial(tipo),
-      localizacao: localizacao,
-      fotoPath: fotoPath,
-    );
-
-    if (!d.valido()) {
-      throw ArgumentError('Denúncia inválida.');
-    }
-
-    _denuncias.add(d);
-    notifyListeners();
-    return d;
+  // 1. Aba "Novos Casos": Busca apenas o que está Em Análise (ninguém pegou)
+  Stream<List<Denuncia>> get casosAbertos {
+    return _db.collection('denuncias')
+        .where('status', isEqualTo: StatusDenuncia.emAnalise.name)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => Denuncia.fromMap(doc.data()))
+            .toList());
   }
 
-  /// Apenas órgãos podem alterar o status.
-  void alterarStatus({
-    required Usuario solicitante,
+  // 2. Aba "Meus Casos": Busca apenas o que está Em Andamento e pertence a este Órgão
+  Stream<List<Denuncia>> meusCasosOrgao(String orgaoId) {
+    return _db.collection('denuncias')
+        .where('status', isEqualTo: StatusDenuncia.emAndamento.name)
+        .where('orgaoId', isEqualTo: orgaoId)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => Denuncia.fromMap(doc.data()))
+            .toList());
+  }
+
+  // 3. NOVO - Aba "Finalizados": Busca casos Resolvidos ou Arquivados por este Órgão
+  Stream<List<Denuncia>> casosFinalizadosOrgao(String orgaoId) {
+    return _db.collection('denuncias')
+        .where('orgaoId', isEqualTo: orgaoId)
+        .where('status', whereIn: [StatusDenuncia.resolvida.name, StatusDenuncia.arquivada.name])
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => Denuncia.fromMap(doc.data()))
+            .toList());
+  }
+
+  // 4. Home do Cidadão: Busca as denúncias feitas por ele
+  Stream<List<Denuncia>> minhasDenuncias(String usuarioId) {
+    return _db.collection('denuncias')
+        .where('usuarioId', isEqualTo: usuarioId)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => Denuncia.fromMap(doc.data()))
+            .toList());
+  }
+
+  // 5. Relatórios: Busca absolutamente tudo
+  Stream<List<Denuncia>> get todasAsDenuncias {
+    return _db.collection('denuncias')
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => Denuncia.fromMap(doc.data()))
+            .toList());
+  }
+
+  Future<void> criarDenuncia(Denuncia denuncia) async {
+    try {
+      await _db.collection('denuncias').doc(denuncia.id).set(denuncia.toMap());
+      notifyListeners();
+    } catch (e) {
+      print("Erro ao criar denúncia: $e");
+    }
+  }
+
+  Future<void> alterarStatus({
     required String denunciaId,
-    required StatusDenuncia novo,
-  }) {
-    if (solicitante.tipo != TipoUsuario.orgao) {
-      throw StateError('Apenas órgãos podem alterar o status.');
-    }
-    final d = _denuncias.firstWhere((e) => e.id == denunciaId);
-    d.status = novo;
-    notifyListeners();
-  }
-
-  Map<StatusDenuncia, int> estatisticasPorStatus() {
-    final m = <StatusDenuncia, int>{
-      for (final s in StatusDenuncia.values) s: 0,
-    };
-    for (final d in _denuncias) {
-      m[d.status] = (m[d.status] ?? 0) + 1;
-    }
-    return m;
-  }
-
-  ClassificacaoUrgencia _classificarUrgenciaInicial(TipoOcorrencia t) {
-    switch (t) {
-      case TipoOcorrencia.agressao:
-      case TipoOcorrencia.mutilacao:
-      case TipoOcorrencia.abusoSexual:
-      case TipoOcorrencia.rinha:
-        return ClassificacaoUrgencia.critica;
-      case TipoOcorrencia.traficoSilvestres:
-      case TipoOcorrencia.aprisionamento:
-        return ClassificacaoUrgencia.alta;
-      case TipoOcorrencia.abandono:
-      case TipoOcorrencia.negligencia:
-        return ClassificacaoUrgencia.media;
+    required StatusDenuncia novoStatus,
+    required String orgaoId,
+  }) async {
+    try {
+      await _db.collection('denuncias').doc(denunciaId).update({
+        'status': novoStatus.name,
+        'orgaoId': orgaoId,
+      });
+      notifyListeners();
+    } catch (e) {
+      print("Erro ao alterar status: $e");
     }
   }
 }
