@@ -41,27 +41,4 @@ class Localizacao {
 
   @override
   String toString() => resumo();
-
-  // ─── FUNÇÕES DO FIREBASE ───────────────────────────────────────────
-  Map<String, dynamic> toMap() {
-    return {
-      'endereco': endereco,
-      'cidade': cidade,
-      'cep': cep,
-      'estado': _estado,
-      'latitude': latitude,
-      'longitude': longitude,
-    };
-  }
-
-  factory Localizacao.fromMap(Map<String, dynamic> map) {
-    return Localizacao(
-      endereco: map['endereco'] ?? '',
-      cidade: map['cidade'] ?? '',
-      estado: map['estado'] ?? '',
-      cep: map['cep'] ?? '',
-      latitude: map['latitude']?.toDouble(),
-      longitude: map['longitude']?.toDouble(),
-    );
-  }
 }

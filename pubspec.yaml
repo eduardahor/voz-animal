@@ -17,9 +17,6 @@ dependencies:
   geocoding: ^3.0.0
   fl_chart: ^0.70.2
   image_picker: ^1.2.2
-  firebase_core: ^4.9.0
-  cloud_firestore: ^6.4.1
-  firebase_auth: ^6.5.1
 
 dev_dependencies:
   flutter_test:

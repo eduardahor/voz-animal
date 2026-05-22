@@ -53,42 +53,10 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  Future<void> _entrar() async {
-    if (!_formKey.currentState!.validate()) return;
-    
-    setState(() => _carregando = true);
-    
-    final ok = await context.read<AuthService>().login(
-          email: _email.text.trim(),
-          senha: _senha.text,
-          tipoEsperado: widget.tipo,
-        );
-        
-    if (!mounted) return;
-    setState(() => _carregando = false);
-    
-    if (ok) {
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => const RouterScreen()),
-        (route) => false,
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_isOrgao
-              ? 'E-mail, CNPJ ou senha incorretos.'
-              : 'E-mail ou senha incorretos.'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final cor = _isOrgao ? Colors.green.shade700 : Colors.blue.shade700;
-    
+
     return Scaffold(
       appBar: AppBar(
         title: Text(_isOrgao ? 'Login do Órgão' : 'Login do Cidadão'),
@@ -127,7 +95,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // CNPJ (apenas órgão) - Apenas visual/segurança extra na tela
+                // CNPJ (apenas órgão)
                 if (_isOrgao) ...[
                   TextFormField(
                     controller: _cnpj,
@@ -164,8 +132,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           setState(() => _senhaVisivel = !_senhaVisivel),
                     ),
                   ),
-                  validator: (v) => (v == null || v.length < 6)
-                      ? 'Mínimo de 6 caracteres'
+                  validator: (v) => (v == null || v.length < 8)
+                      ? 'Mínimo de 8 caracteres'
                       : null,
                 ),
                 const SizedBox(height: 28),
@@ -181,7 +149,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: _carregando
                         ? const CircularProgressIndicator(color: Colors.white)
                         : const Text('ENTRAR',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                            style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -215,5 +183,36 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _entrar() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _carregando = true);
+
+    final ok = await context.read<AuthService>().login(
+          email: _email.text.trim(),
+          senha: _senha.text,
+          tipoEsperado: widget.tipo,
+          cnpj: _isOrgao ? _cnpj.text.trim() : null,
+        );
+
+    setState(() => _carregando = false);
+    if (!mounted) return;
+
+    if (ok) {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const RouterScreen()),
+        (route) => false,
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_isOrgao
+              ? 'E-mail, CNPJ ou senha incorretos.'
+              : 'E-mail ou senha incorretos.'),
+        ),
+      );
+    }
   }
 }

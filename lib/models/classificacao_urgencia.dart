@@ -1,7 +1,6 @@
 /// Escala de urgência usada na triagem das ocorrências.
 enum ClassificacaoUrgencia { baixa, media, alta, critica }
 
-// E É ESTA EXTENSÃO AQUI QUE FAZ O ".label" FUNCIONAR NA URGÊNCIA!
 extension ClassificacaoUrgenciaX on ClassificacaoUrgencia {
   String get label {
     switch (this) {
