@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import '../models/usuario.dart';
 import '../models/tipo_usuario.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 
 
 class AuthService extends ChangeNotifier {
@@ -24,36 +26,46 @@ class AuthService extends ChangeNotifier {
   }) async {
     if (email.isEmpty || senha.length < 4) return false;
 
-    final conta = _contas.cast<_Conta?>().firstWhere(
-          (c) =>
-              c!.email.toLowerCase() == email.toLowerCase() &&
-              c.tipo == tipoEsperado,
-          orElse: () => null,
-        );
+    try {
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('usuarios')
+          .where('email', isEqualTo: email.toLowerCase().trim())
+          .where('tipo', isEqualTo: tipoEsperado.name) // orgao ou cidadao
+          .limit(1)
+          .get();
 
-    if (conta != null && conta.senha != senha) return false;
+      if (querySnapshot.docs.isEmpty) return false; // Usuário não encontrado no banco
 
-    if (tipoEsperado == TipoUsuario.orgao) {
-      if (cnpj == null || cnpj.trim().isEmpty) return false;
+      final dados = querySnapshot.docs.first.data();
+      final idDocumento = querySnapshot.docs.first.id;
 
-      final cnpjInformado = cnpj.replaceAll(RegExp(r'\D'), '');
-      final cnpjCadastrado = (conta!.cnpj ?? '').replaceAll(RegExp(r'\D'), '');
+      if (dados['senha'] != null && dados['senha'] != senha) return false;
 
-      if (cnpjInformado != cnpjCadastrado) return false;
+      if (tipoEsperado == TipoUsuario.orgao) {
+        if (cnpj == null || cnpj.trim().isEmpty) return false;
+
+        final cnpjInformado = cnpj.replaceAll(RegExp(r'\D'), '');
+        final cnpjCadastrado = (dados['cnpj'] ?? '').toString().replaceAll(RegExp(r'\D'), '');
+
+        if (cnpjInformado != cnpjCadastrado) return false;
+      }
+
+      _usuarioAtual = Usuario(
+        id: idDocumento,
+        nome: dados['orgaonome'] ?? dados['nome'] ?? 'Órgão Responsável',
+        email: email,
+        senha: senha,
+        tipo: tipoEsperado,
+        cnpj: dados['cnpj'],
+        cpf: dados['cpf'],
+      );
+
+      notifyListeners();
+      return true;
+    } catch (e) {
+      if (kDebugMode) print('Erro no login do Firebase: $e');
+      return false;
     }
-
-    _usuarioAtual = Usuario(
-      id: conta?.id ?? 'u-${DateTime.now().millisecondsSinceEpoch}',
-      nome: conta?.nome ??
-          (tipoEsperado == TipoUsuario.orgao ? 'Órgão Responsável' : 'Cidadão'),
-      email: email,
-      senha: senha,
-      tipo: tipoEsperado,
-      cnpj: conta?.cnpj,
-      cpf: conta?.cpf,
-    );
-    notifyListeners();
-    return true;
   }
 
 
