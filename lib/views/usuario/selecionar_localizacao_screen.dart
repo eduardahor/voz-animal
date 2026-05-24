@@ -3,8 +3,7 @@ import 'package:provider/provider.dart';
 import '../../models/localizacao.dart';
 import '../../services/localizacao_service.dart';
 
-/// Tela para preencher/escolher a localização da ocorrência.
-/// Retorna a Localizacao via Navigator.pop quando válida.
+
 class SelecionarLocalizacaoScreen extends StatefulWidget {
   final Localizacao? inicial;
   const SelecionarLocalizacaoScreen({super.key, this.inicial});

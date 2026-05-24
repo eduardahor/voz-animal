@@ -1,0 +1,120 @@
+// firestore.rules — Voz Animal
+// Deploy: firebase deploy --only firestore:rules
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ─────────────────────────────────────────────────
+
+    function autenticado() {
+      return request.auth != null;
+    }
+
+    function meuId() {
+      return request.auth.uid;
+    }
+
+    function isOrgao() {
+      return autenticado()
+          && get(/databases/$(database)/documents/usuarios/$(meuId())).data.tipo == 'orgao';
+    }
+
+    function isCidadao() {
+      return autenticado()
+          && get(/databases/$(database)/documents/usuarios/$(meuId())).data.tipo == 'cidadao';
+    }
+
+    function denunciaAtual(denunciaId) {
+      return get(/databases/$(database)/documents/denuncias/$(denunciaId)).data;
+    }
+
+    // Verifica se o órgão logado é o responsável atual da denúncia
+    function souResponsavel(denunciaId) {
+      return denunciaAtual(denunciaId).orgaoResponsavelId == meuId();
+    }
+
+    // Valida que apenas campos permitidos foram alterados
+    function somenteAlterou(campos) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(campos);
+    }
+
+    // Transições de status válidas (espelha a lógica Dart)
+    function transicaoValida(de, para) {
+      return (de == 'em_analise'  && (para == 'em_andamento' || para == 'recusada'))
+          || (de == 'em_andamento' && (para == 'resolvida'    || para == 'recusada'));
+    }
+
+    // ── Coleção: usuarios ────────────────────────────────────────
+
+    match /usuarios/{uid} {
+      allow read: if autenticado() && meuId() == uid;
+      allow create: if autenticado() && meuId() == uid;
+      allow update: if autenticado() && meuId() == uid
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['tipo', 'id']);
+      allow delete: if false;
+    }
+
+    // ── Coleção: denuncias ───────────────────────────────────────
+
+    match /denuncias/{denunciaId} {
+
+      // Qualquer usuário autenticado pode ler
+      allow read: if autenticado();
+
+      // Cidadão cria; status inicial deve ser "aberta"
+      allow create: if isCidadao()
+          && request.resource.data.usuarioId == meuId()
+          && request.resource.data.status == 'aberta'
+          && request.resource.data.orgaoResponsavelId == null;
+
+      // Órgão pode fazer update — regras granulares abaixo
+      allow update: if isOrgao() && _updatePermitido(denunciaId);
+
+      allow delete: if false;
+
+      // ── Histórico (subcoleção) ──────────────────────────────────
+
+      match /historico/{itemId} {
+        allow read:   if autenticado();
+        allow create: if isOrgao();   // apenas functions/orgao criam
+        allow update, delete: if false;
+      }
+    }
+
+    // ── Função auxiliar de update ─────────────────────────────────
+    // (funções não podem referenciar outras funções no escopo match,
+    //  por isso usamos inline — separado por operação)
+
+    function _updatePermitido(denunciaId) {
+      let atual = resource.data;
+      let novo  = request.resource.data;
+      let status  = atual.status;
+      let novoStatus = novo.status;
+
+      // Operação: ASSUMIR
+      // Condições: status aberto, órgão não bloqueado, campos corretos
+      let isAssumir = status == 'aberta'
+          && novoStatus == 'em_analise'
+          && novo.orgaoResponsavelId == meuId()
+          && (
+               !atual.bloqueadosAte.keys().hasAll([meuId()])
+               || atual.bloqueadosAte[meuId()] < request.time
+             );
+
+      // Operação: ALTERAR STATUS
+      let isAlterarStatus = souResponsavel(denunciaId)
+          && transicaoValida(status, novoStatus)
+          && novo.orgaoResponsavelId == atual.orgaoResponsavelId
+          && somenteAlterou(['status', 'atualizadoEm']);
+
+      // Operação: DEVOLVER
+      let isDevolver = souResponsavel(denunciaId)
+          && novoStatus == 'aberta'
+          && novo.orgaoResponsavelId == null
+          && (status == 'em_analise' || status == 'em_andamento');
+
+      return isAssumir || isAlterarStatus || isDevolver;
+    }
+  }
+}

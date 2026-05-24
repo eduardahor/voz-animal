@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import '../models/usuario.dart';
 import '../models/tipo_usuario.dart';
 
+
 class AuthService extends ChangeNotifier {
   Usuario? _usuarioAtual;
   final List<_Conta> _contas = [];
@@ -30,16 +31,15 @@ class AuthService extends ChangeNotifier {
           orElse: () => null,
         );
 
-    // Credenciais incorretas
     if (conta != null && conta.senha != senha) return false;
 
-    // Para órgão: valida CNPJ se a conta já existe
-    if (tipoEsperado == TipoUsuario.orgao && conta != null && cnpj != null) {
+    if (tipoEsperado == TipoUsuario.orgao) {
+      if (cnpj == null || cnpj.trim().isEmpty) return false;
+
       final cnpjInformado = cnpj.replaceAll(RegExp(r'\D'), '');
-      final cnpjCadastrado = (conta.cnpj ?? '').replaceAll(RegExp(r'\D'), '');
-      if (cnpjCadastrado.isNotEmpty && cnpjInformado != cnpjCadastrado) {
-        return false;
-      }
+      final cnpjCadastrado = (conta!.cnpj ?? '').replaceAll(RegExp(r'\D'), '');
+
+      if (cnpjInformado != cnpjCadastrado) return false;
     }
 
     _usuarioAtual = Usuario(
@@ -55,6 +55,7 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
     return true;
   }
+
 
   String? cadastrar({
     required String nome,
@@ -82,7 +83,7 @@ class AuthService extends ChangeNotifier {
       if (cpfLimpo.length != 11) return 'CPF inválido (11 dígitos).';
     }
 
-    // ── Verificações de duplicidade ──────────────────────────────
+    // Verificação de duplicidades
     final emailDuplicado = _contas.any(
       (c) => c.email.toLowerCase() == email.toLowerCase() && c.tipo == tipo,
     );
@@ -107,6 +108,7 @@ class AuthService extends ChangeNotifier {
       );
       if (cnpjDuplicado) return 'Já existe uma conta com este CNPJ.';
     }
+
 
     final conta = _Conta(
       id: 'u-${DateTime.now().millisecondsSinceEpoch}',
@@ -136,11 +138,9 @@ class AuthService extends ChangeNotifier {
     notifyListeners();
   }
 
-  void notificarMudanca() {
-    notifyListeners();
-  }
-}
 
+  void atualizarPerfil() => notifyListeners();
+}
 
 class _Conta {
   final String id;
