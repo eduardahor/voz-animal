@@ -1,92 +1,138 @@
 import 'package:flutter/foundation.dart';
 import '../models/denuncia.dart';
-import '../models/tipo_ocorrencia.dart';
+import '../models/historico_item.dart';
 import '../models/status_denuncia.dart';
-import '../models/classificacao_urgencia.dart';
+import '../models/tipo_ocorrencia.dart';
 import '../models/localizacao.dart';
-import '../models/tipo_usuario.dart';
-import '../models/usuario.dart';
+import '../repositories/denuncia_repository.dart';
+import '../exceptions/claim_exception.dart';
 
+
+sealed class ClaimResult {
+  const ClaimResult();
+}
+final class ClaimSuccess extends ClaimResult {
+  final String mensagem;
+  const ClaimSuccess(this.mensagem);
+}
+final class ClaimFailure extends ClaimResult {
+  final String mensagem;
+  final bool bloqueado;
+  const ClaimFailure(this.mensagem, {this.bloqueado = false});
+}
+
+/// Service de denúncias: orquestra Repository e expõe Streams para a UI.
 class DenunciaService extends ChangeNotifier {
-  final List<Denuncia> _denuncias = [];
+  DenunciaService({DenunciaRepository? repo})
+      : _repo = repo ?? DenunciaRepository();
 
-  List<Denuncia> get todas => List.unmodifiable(_denuncias);
+  final DenunciaRepository _repo;
 
-  List<Denuncia> doUsuario(String usuarioId) =>
-      _denuncias.where((d) => d.usuarioId == usuarioId).toList();
 
-/* Cria uma nova denúncia validando regras de negócio.
-Lança ArgumentError caso a denúncia seja inválida. */
-  Denuncia criar({
+  Stream<List<Denuncia>> abertas() => _repo.abertas();
+
+  Stream<List<Denuncia>> doOrgao(String orgaoId) => _repo.doOrgao(orgaoId);
+
+  Stream<List<Denuncia>> doCidadao(String usuarioId) =>
+      _repo.doCidadao(usuarioId);
+
+  Stream<List<HistoricoItem>> historicoDe(String denunciaId) =>
+      _repo.historicoDe(denunciaId);
+
+
+  Future<String?> criar({
     required String usuarioId,
     required String descricao,
     required TipoOcorrencia tipo,
     required Localizacao localizacao,
-    String? fotoPath,
-  }) {
-    if (descricao.trim().length < 20) {
-      throw ArgumentError('Descrição precisa ter ao menos 20 caracteres.');
+    String? fotoUrl,
+  }) async {
+    try {
+      return await _repo.criar(
+        usuarioId: usuarioId,
+        descricao: descricao,
+        tipo: tipo,
+        localizacao: localizacao,
+        fotoUrl: fotoUrl,
+      );
+    } catch (e) {
+      debugPrint('[DenunciaService.criar] $e');
+      rethrow;
     }
-    if (!localizacao.valido()) {
-      throw ArgumentError('Localização inválida.');
-    }
-
-    final d = Denuncia(
-      id: 'd-${DateTime.now().microsecondsSinceEpoch}',
-      usuarioId: usuarioId,
-      descricao: descricao.trim(),
-      tipo: tipo,
-      urgencia: _classificarUrgenciaInicial(tipo),
-      localizacao: localizacao,
-      fotoPath: fotoPath,
-    );
-
-    if (!d.valido()) {
-      throw ArgumentError('Denúncia inválida.');
-    }
-
-    _denuncias.add(d);
-    notifyListeners();
-    return d;
   }
 
-  /// Apenas órgãos podem alterar o status.
-  void alterarStatus({
-    required Usuario solicitante,
+
+  Future<ClaimResult> assumir({
     required String denunciaId,
+    required String orgaoId,
+    required String orgaoNome,
+  }) async {
+    try {
+      await _repo.assumir(
+        denunciaId: denunciaId,
+        orgaoId: orgaoId,
+        orgaoNome: orgaoNome,
+      );
+      return const ClaimSuccess('Denúncia assumida com sucesso!');
+    } on DenunciaJaAssumidaException catch (e) {
+      return ClaimFailure(e.mensagem);
+    } on OrgaoBloqueadoException catch (e) {
+      return ClaimFailure(e.mensagem, bloqueado: true);
+    } on ClaimException catch (e) {
+      return ClaimFailure(e.mensagem);
+    } catch (e) {
+      debugPrint('[DenunciaService.assumir] $e');
+      return const ClaimFailure('Erro inesperado. Tente novamente.');
+    }
+  }
+
+
+  Future<ClaimResult> devolver({
+    required String denunciaId,
+    required String orgaoId,
+    required String orgaoNome,
+    String? observacao,
+  }) async {
+    try {
+      await _repo.devolver(
+        denunciaId: denunciaId,
+        orgaoId: orgaoId,
+        orgaoNome: orgaoNome,
+        observacao: observacao,
+      );
+      return const ClaimSuccess('Denúncia devolvida. Outros órgãos poderão assumí-la.');
+    } on ClaimException catch (e) {
+      return ClaimFailure(e.mensagem);
+    } catch (e) {
+      debugPrint('[DenunciaService.devolver] $e');
+      return const ClaimFailure('Erro inesperado. Tente novamente.');
+    }
+  }
+
+
+  Future<ClaimResult> alterarStatus({
+    required String denunciaId,
+    required String orgaoId,
+    required String orgaoNome,
     required StatusDenuncia novo,
-  }) {
-    if (solicitante.tipo != TipoUsuario.orgao) {
-      throw StateError('Apenas órgãos podem alterar o status.');
+    String? observacao,
+  }) async {
+    try {
+      await _repo.alterarStatus(
+        denunciaId: denunciaId,
+        orgaoId: orgaoId,
+        orgaoNome: orgaoNome,
+        novo: novo,
+        observacao: observacao,
+      );
+      return ClaimSuccess('Status alterado para "${novo.label}".');
+    } on ClaimException catch (e) {
+      return ClaimFailure(e.mensagem);
+    } catch (e) {
+      debugPrint('[DenunciaService.alterarStatus] $e');
+      return const ClaimFailure('Erro inesperado. Tente novamente.');
     }
-    final d = _denuncias.firstWhere((e) => e.id == denunciaId);
-    d.status = novo;
-    notifyListeners();
   }
 
-  Map<StatusDenuncia, int> estatisticasPorStatus() {
-    final m = <StatusDenuncia, int>{
-      for (final s in StatusDenuncia.values) s: 0,
-    };
-    for (final d in _denuncias) {
-      m[d.status] = (m[d.status] ?? 0) + 1;
-    }
-    return m;
-  }
-
-  ClassificacaoUrgencia _classificarUrgenciaInicial(TipoOcorrencia t) {
-    switch (t) {
-      case TipoOcorrencia.agressao:
-      case TipoOcorrencia.mutilacao:
-      case TipoOcorrencia.abusoSexual:
-      case TipoOcorrencia.rinha:
-        return ClassificacaoUrgencia.critica;
-      case TipoOcorrencia.traficoSilvestres:
-      case TipoOcorrencia.aprisionamento:
-        return ClassificacaoUrgencia.alta;
-      case TipoOcorrencia.abandono:
-      case TipoOcorrencia.negligencia:
-        return ClassificacaoUrgencia.media;
-    }
-  }
+  Future<void> resetarExpiradas() => _repo.resetarDenunciasExpiradas();
 }

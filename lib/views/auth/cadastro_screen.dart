@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../models/tipo_usuario.dart';
 import '../../services/auth_service.dart';
 
+
 class _CpfInputFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
@@ -22,6 +23,7 @@ class _CpfInputFormatter extends TextInputFormatter {
     );
   }
 }
+
 
 class _CnpjInputFormatter extends TextInputFormatter {
   @override
