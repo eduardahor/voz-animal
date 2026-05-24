@@ -7,8 +7,8 @@ class Usuario {
   String email;
   String senha;
   String? orgaoNome;
-  String? cnpj;   // apenas órgão
-  String? cpf;    // apenas cidadão
+  String? cnpj;
+  String? cpf;
   final TipoUsuario tipo;
 
   Usuario({

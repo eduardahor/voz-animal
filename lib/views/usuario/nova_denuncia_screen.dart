@@ -16,12 +16,12 @@ class NovaDenunciaScreen extends StatefulWidget {
 }
 
 class _NovaDenunciaScreenState extends State<NovaDenunciaScreen> {
-  final _formKey = GlobalKey<FormState>();
+  final _formKey   = GlobalKey<FormState>();
   final _descricao = TextEditingController();
   TipoOcorrencia? _tipo;
-  Localizacao? _localizacao;
-  String? _fotoPath;
-  bool _salvando = false;
+  Localizacao?    _localizacao;
+  String?         _fotoUrl;
+  bool            _salvando = false;
 
   final _fotoService = FotoService();
 
@@ -30,6 +30,12 @@ class _NovaDenunciaScreenState extends State<NovaDenunciaScreen> {
       _tipo != null &&
       _localizacao != null &&
       _localizacao!.valido();
+
+  @override
+  void dispose() {
+    _descricao.dispose();
+    super.dispose();
+  }
 
   Future<void> _escolherFoto() async {
     final origem = await showModalBottomSheet<bool>(
@@ -54,7 +60,7 @@ class _NovaDenunciaScreenState extends State<NovaDenunciaScreen> {
     );
     if (origem == null) return;
     final path = await _fotoService.capturarOuSelecionar(camera: origem);
-    if (path != null) setState(() => _fotoPath = path);
+    if (path != null) setState(() => _fotoUrl = path);
   }
 
   Future<void> _escolherLocal() async {
@@ -67,7 +73,7 @@ class _NovaDenunciaScreenState extends State<NovaDenunciaScreen> {
     if (loc != null) setState(() => _localizacao = loc);
   }
 
-  void _salvar() {
+  Future<void> _salvar() async {
     final faltando = <String>[];
     if (_descricao.text.trim().length < 20) {
       faltando.add('Descrição (mín. 20 caracteres)');
@@ -86,18 +92,20 @@ class _NovaDenunciaScreenState extends State<NovaDenunciaScreen> {
     setState(() => _salvando = true);
     try {
       final usuario = context.read<AuthService>().usuarioAtual!;
-      context.read<DenunciaService>().criar(
-            usuarioId: usuario.id,
-            descricao: _descricao.text,
-            tipo: _tipo!,
+      await context.read<DenunciaService>().criar(
+            usuarioId:   usuario.id,
+            descricao:   _descricao.text,
+            tipo:        _tipo!,
             localizacao: _localizacao!,
-            fotoPath: _fotoPath,
+            fotoUrl:     _fotoUrl,
           );
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Denúncia registrada com sucesso!')),
       );
       Navigator.pop(context);
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erro: $e')),
       );
@@ -122,7 +130,6 @@ class _NovaDenunciaScreenState extends State<NovaDenunciaScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Foto
               const Text('Foto da ocorrência (opcional)',
                   style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
@@ -130,14 +137,12 @@ class _NovaDenunciaScreenState extends State<NovaDenunciaScreen> {
                 onTap: _escolherFoto,
                 child: AspectRatio(
                   aspectRatio: 16 / 9,
-                  child: _fotoPath == null
+                  child: _fotoUrl == null
                       ? Container(
                           decoration: BoxDecoration(
                             color: Colors.grey.shade200,
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                                color: Colors.grey.shade400,
-                                style: BorderStyle.solid),
+                            border: Border.all(color: Colors.grey.shade400),
                           ),
                           child: const Center(
                             child: Column(
@@ -151,12 +156,10 @@ class _NovaDenunciaScreenState extends State<NovaDenunciaScreen> {
                             ),
                           ),
                         )
-                      : FotoDenuncia(path: _fotoPath),
+                      : FotoDenuncia(path: _fotoUrl),
                 ),
               ),
               const SizedBox(height: 24),
-
-              // Tipo
               const Text('Tipo de ocorrência *',
                   style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
@@ -171,7 +174,8 @@ class _NovaDenunciaScreenState extends State<NovaDenunciaScreen> {
                         DropdownMenuItem(value: t, child: Text(t.label)))
                     .toList(),
                 onChanged: (v) => setState(() => _tipo = v),
-                validator: (v) => v == null ? 'Selecione um tipo' : null,
+                validator: (v) =>
+                    v == null ? 'Selecione um tipo' : null,
               ),
               if (_tipo != null) ...[
                 const SizedBox(height: 8),
@@ -195,7 +199,6 @@ class _NovaDenunciaScreenState extends State<NovaDenunciaScreen> {
               ],
               const SizedBox(height: 24),
 
-              // Descrição
               const Text('Descrição *',
                   style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
@@ -206,17 +209,13 @@ class _NovaDenunciaScreenState extends State<NovaDenunciaScreen> {
                   border: OutlineInputBorder(),
                   hintText: 'Descreva o que aconteceu (mín. 20 caracteres)',
                 ),
-                validator: (v) {
-                  if (v == null || v.trim().length < 20) {
-                    return 'Mínimo de 20 caracteres';
-                  }
-                  return null;
-                },
+                validator: (v) => (v == null || v.trim().length < 20)
+                    ? 'Mínimo de 20 caracteres'
+                    : null,
                 onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: 24),
 
-              // Local
               const Text('Localização *',
                   style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
@@ -232,7 +231,8 @@ class _NovaDenunciaScreenState extends State<NovaDenunciaScreen> {
                       'Toque para definir o local'),
                   subtitle: _localizacao != null
                       ? Text(
-                          '${_localizacao!.cidade}/${_localizacao!.estado} — CEP ${_localizacao!.cep}')
+                          '${_localizacao!.cidade}/${_localizacao!.estado}'
+                          ' — CEP ${_localizacao!.cep}')
                       : null,
                   trailing: const Icon(Icons.chevron_right),
                   onTap: _escolherLocal,
@@ -240,7 +240,6 @@ class _NovaDenunciaScreenState extends State<NovaDenunciaScreen> {
               ),
               const SizedBox(height: 32),
 
-              // Botão salvar
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red.shade700,
@@ -248,8 +247,7 @@ class _NovaDenunciaScreenState extends State<NovaDenunciaScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   disabledBackgroundColor: Colors.grey.shade400,
                 ),
-                onPressed:
-                    (!_formValido || _salvando) ? null : _salvar,
+                onPressed: (!_formValido || _salvando) ? null : _salvar,
                 icon: _salvando
                     ? const SizedBox(
                         width: 18,
