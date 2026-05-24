@@ -6,6 +6,7 @@ import '../../services/auth_service.dart';
 import '../router_screen.dart';
 import 'cadastro_screen.dart';
 
+
 class _CnpjInputFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../models/tipo_usuario.dart';
 import '../../services/auth_service.dart';
 
+
 class _CpfInputFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
@@ -124,8 +125,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
       usuario.senha = _novaSenha.text;
     }
 
-    auth.notificarMudanca();
-
+    auth.atualizarPerfil();
     setState(() => _carregando = false);
     if (!mounted) return;
 
@@ -181,12 +181,13 @@ class _PerfilScreenState extends State<PerfilScreen> {
                 Center(
                   child: Chip(
                     label:
-                    Text(isOrgao ? 'Órgão Responsável' : 'Cidadão'),
+                        Text(isOrgao ? 'Órgão Responsável' : 'Cidadão'),
                     backgroundColor: cor.withValues(alpha: 0.12),
                     labelStyle: TextStyle(color: cor, fontSize: 12),
                   ),
                 ),
                 const SizedBox(height: 28),
+
                 _SectionHeader(titulo: 'Dados Pessoais', cor: cor),
                 const SizedBox(height: 12),
 
@@ -237,7 +238,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
                     ),
                     validator: (v) {
                       final digits =
-                      (v ?? '').replaceAll(RegExp(r'\D'), '');
+                          (v ?? '').replaceAll(RegExp(r'\D'), '');
                       if (digits.length != 14) {
                         return 'CNPJ inválido (14 dígitos)';
                       }
@@ -296,7 +297,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
                             ? Icons.visibility_off
                             : Icons.visibility),
                         onPressed: () => setState(() =>
-                        _senhaAtualVisivel = !_senhaAtualVisivel),
+                            _senhaAtualVisivel = !_senhaAtualVisivel),
                       ),
                     ),
                     validator: (v) {
@@ -318,7 +319,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
                             ? Icons.visibility_off
                             : Icons.visibility),
                         onPressed: () => setState(
-                                () => _novaSenhaVisivel = !_novaSenhaVisivel),
+                            () => _novaSenhaVisivel = !_novaSenhaVisivel),
                       ),
                     ),
                     validator: (v) {
@@ -342,7 +343,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
                             ? Icons.visibility_off
                             : Icons.visibility),
                         onPressed: () => setState(() =>
-                        _confirmaSenhaVisivel = !_confirmaSenhaVisivel),
+                            _confirmaSenhaVisivel = !_confirmaSenhaVisivel),
                       ),
                     ),
                     validator: (v) {
@@ -367,9 +368,9 @@ class _PerfilScreenState extends State<PerfilScreen> {
                     child: _carregando
                         ? const CircularProgressIndicator(color: Colors.white)
                         : const Text(
-                      'SALVAR ALTERAÇÕES',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
+                            'SALVAR ALTERAÇÕES',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
                   ),
                 ),
               ],
