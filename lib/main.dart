@@ -6,12 +6,12 @@ import 'services/auth_service.dart';
 import 'services/denuncia_service.dart';
 import 'services/localizacao_service.dart';
 import 'views/router_screen.dart';
-// import 'firebase_options.dart'; // gerado por: flutterfire configure
+ import 'firebase_options.dart'; // gerado por: flutterfire configure
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
-    // options: DefaultFirebaseOptions.currentPlatform,
+    options: DefaultFirebaseOptions.currentPlatform,
   );
   runApp(const VozAnimalApp());
 }
