@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../models/denuncia.dart';
 import '../../models/historico_item.dart';
+import '../../models/localizacao.dart';
 import '../../models/status_denuncia.dart';
 import '../../models/tipo_ocorrencia.dart';
 import '../../services/denuncia_service.dart';
@@ -69,7 +70,10 @@ class DetalheDenunciaOrgaoScreen extends StatelessWidget {
             const Text('Local',
                 style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 4),
-            Text(d.localizacao?.resumo() ?? 'Não informado'),
+            if (d.localizacao == null)
+              const Text('Não informado')
+            else
+              _LocalCard(localizacao: d.localizacao!),
 
             const SizedBox(height: 24),
 
@@ -267,7 +271,7 @@ class _BotaoDevolverState extends State<_BotaoDevolver> {
       context: context,
       builder: (_) => _DialogDevolver(),
     );
-    if (observacao == null) return; // cancelou
+    if (observacao == null) return; // cancelou a devolução
 
     setState(() => _carregando = true);
     final result = await widget.svc.devolver(
@@ -414,5 +418,76 @@ class _PainelHistorico extends StatelessWidget {
       case 'criado':      return const Icon(Icons.add_circle_outline, color: Colors.blue);
       default:            return const Icon(Icons.swap_horiz, color: Colors.purple);
     }
+  }
+}
+
+
+class _LocalCard extends StatelessWidget {
+  final Localizacao localizacao;
+  const _LocalCard({required this.localizacao});
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = localizacao;
+    final cor = Color(loc.precisaoCor);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: loc.temGps
+            ? cor.withValues(alpha: 0.08)
+            : Colors.green.shade50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+            color: loc.temGps
+                ? cor.withValues(alpha: 0.3)
+                : Colors.green.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Icon(loc.temGps ? Icons.gps_fixed : Icons.location_on,
+                color: loc.temGps ? cor : Colors.green.shade700, size: 18),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(loc.endereco,
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
+            ),
+            if (loc.temGps)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: cor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(loc.precisaoLabel,
+                    style: TextStyle(
+                        color: cor,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold)),
+              ),
+          ]),
+          if (loc.cidade.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text('${loc.cidade}/${loc.estado}'
+                '${loc.cep.isNotEmpty ? " — CEP ${loc.cep}" : ""}',
+                style: const TextStyle(
+                    color: Colors.black54, fontSize: 13)),
+          ],
+          if (loc.temGps) ...[
+            const SizedBox(height: 6),
+            SelectableText(
+              'Lat: ${loc.latitude!.toStringAsFixed(6)}  '
+              'Lon: ${loc.longitude!.toStringAsFixed(6)}',
+              style: const TextStyle(
+                  fontSize: 11,
+                  color: Colors.black45,
+                  fontFamily: 'monospace'),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 }
