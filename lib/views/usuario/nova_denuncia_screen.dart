@@ -222,18 +222,38 @@ class _NovaDenunciaScreenState extends State<NovaDenunciaScreen> {
               Card(
                 child: ListTile(
                   leading: Icon(
-                    Icons.location_on,
+                    _localizacao?.temGps == true
+                        ? Icons.gps_fixed
+                        : Icons.location_on,
                     color: _localizacao == null
                         ? Colors.grey
-                        : Colors.green.shade700,
+                        : _localizacao!.temGps
+                            ? Color(_localizacao!.precisaoCor)
+                            : Colors.green.shade700,
                   ),
                   title: Text(_localizacao?.endereco ??
                       'Toque para definir o local'),
                   subtitle: _localizacao != null
-                      ? Text(
-                          '${_localizacao!.cidade}/${_localizacao!.estado}'
-                          ' — CEP ${_localizacao!.cep}')
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (_localizacao!.cidade.isNotEmpty)
+                              Text('${_localizacao!.cidade}/'
+                                  '${_localizacao!.estado}'
+                                  '${_localizacao!.cep.isNotEmpty ? " — CEP ${_localizacao!.cep}" : ""}'),
+                            if (_localizacao!.temGps)
+                              Text(
+                                _localizacao!.precisaoLabel,
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    color: Color(_localizacao!.precisaoCor),
+                                    fontWeight: FontWeight.w600),
+                              ),
+                          ],
+                        )
                       : null,
+                  isThreeLine: _localizacao?.temGps == true,
                   trailing: const Icon(Icons.chevron_right),
                   onTap: _escolherLocal,
                 ),
