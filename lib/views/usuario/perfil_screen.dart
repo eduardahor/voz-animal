@@ -324,9 +324,8 @@ class _PerfilScreenState extends State<PerfilScreen> {
                     ),
                     validator: (v) {
                       if (!_alterarSenha) return null;
-                      if (v == null || v.length < 8) {
-                        return 'Mínimo de 8 caracteres';
-                      }
+                      if (v == null || v.length < 8) return 'Mínimo de 8 caracteres';
+                      if (v == _senhaAtual.text) return 'A nova senha não pode ser igual a atual';
                       return null;
                     },
                   ),
