@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../models/denuncia.dart';
+import '../../models/localizacao.dart';
 import '../../models/tipo_ocorrencia.dart';
 import '../foto_denuncia.dart';
 import '../shared/badges.dart';
@@ -59,24 +60,7 @@ class DetalheDenunciaUsuarioScreen extends StatelessWidget {
             if (d.localizacao == null)
               const Text('Não informado')
             else ...[
-              Container(
-                height: 120,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.blue.shade100,
-                      Colors.green.shade100
-                    ],
-                  ),
-                ),
-                child: const Center(
-                  child: Icon(Icons.location_on,
-                      color: Colors.redAccent, size: 40),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(d.localizacao!.resumo()),
+              _LocalCard(localizacao: d.localizacao!),
             ],
           ],
         ),
@@ -92,4 +76,73 @@ class DetalheDenunciaUsuarioScreen extends StatelessWidget {
       Expanded(child: Text(valor)),
     ]),
   );
+}
+
+
+class _LocalCard extends StatelessWidget {
+  final Localizacao localizacao;
+  const _LocalCard({required this.localizacao});
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = localizacao;
+    final cor = Color(loc.precisaoCor);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: loc.temGps
+            ? cor.withValues(alpha: 0.08)
+            : Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+            color: loc.temGps ? cor.withValues(alpha: 0.3) : Colors.blue.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Icon(
+              loc.temGps ? Icons.gps_fixed : Icons.location_on,
+              color: loc.temGps ? cor : Colors.blue.shade700,
+              size: 18,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(loc.endereco,
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
+            ),
+            if (loc.temGps)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: cor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(loc.precisaoLabel,
+                    style: TextStyle(
+                        color: cor, fontSize: 10,
+                        fontWeight: FontWeight.bold)),
+              ),
+          ]),
+          if (loc.cidade.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text('${loc.cidade}/${loc.estado}'
+                '${loc.cep.isNotEmpty ? " — CEP ${loc.cep}" : ""}',
+                style: const TextStyle(color: Colors.black54, fontSize: 13)),
+          ],
+          if (loc.temGps) ...[
+            const SizedBox(height: 6),
+            SelectableText(
+              'Lat: ${loc.latitude!.toStringAsFixed(6)}  '
+              'Lon: ${loc.longitude!.toStringAsFixed(6)}',
+              style: const TextStyle(
+                  fontSize: 11, color: Colors.black45,
+                  fontFamily: 'monospace'),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 }
