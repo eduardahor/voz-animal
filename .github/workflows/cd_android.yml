@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.x'
@@ -17,17 +18,17 @@ jobs:
 
       - name: Decode google-services.json
         run: |
-          echo "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 -d \
-            > android/app/google-services.json
+          echo "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 -d -i > android/app/google-services.json
 
       - name: Decode keystore
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d \
-            > android/app/release.jks
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d -i > android/app/release.jks
 
-      - run: flutter pub get
-      - run: flutter build appbundle --release
-          --dart-define=FLAVOR=production
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build AppBundle
+        run: flutter build appbundle --release --dart-define=FLAVOR=production
 
       - name: Upload AAB
         uses: actions/upload-artifact@v4
