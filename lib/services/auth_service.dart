@@ -4,6 +4,7 @@ import '../models/tipo_usuario.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 
+
 class AuthService extends ChangeNotifier {
   Usuario? _usuarioAtual;
   final List<_Conta> _contas = [];
