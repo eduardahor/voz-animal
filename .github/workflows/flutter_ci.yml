@@ -2,26 +2,33 @@ name: Flutter CI
 
 on:
   pull_request:
-    branches: [ main ]
+    branches: [main, develop]
+  push:
+    branches: [develop]
 
 jobs:
-  build:
+  analyze-and-test:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout código
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - name: Instalar Flutter
-        uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.x'
+          channel: stable
+          cache: true                          # Cache do SDK Flutter
 
-      - name: Instalar dependências
-        run: flutter pub get
+      - name: Cache pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: ${{ runner.os }}-pub-${{ hashFiles('pubspec.lock') }}
 
-      - name: Analisar código
-        run: flutter analyze
+      - run: flutter pub get
+      - run: flutter analyze --fatal-infos     # Falha em qualquer info
+      - run: flutter test --coverage
 
-      - name: Rodar testes
-        run: flutter test
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
