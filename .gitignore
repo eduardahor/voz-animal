@@ -1,59 +1,191 @@
-# Miscellaneous
-*.class
-*.log
-*.pyc
-*.swp
-.DS_Store
-.atom/
-.build/
-.buildlog/
-.history
-.svn/
-.swiftpm/
-migrate_working_dir/
+# Credenciais Firebase (contêm chaves de API e IDs de projeto)
+google-services.json
+GoogleService-Info.plist
 
-# IntelliJ related
+# Variáveis de ambiente com segredos
+**/.env
+**/.env.*
+!.env.example
+
+# Keystore de assinatura Android (chave privada de produção)
+*.jks
+*.keystore
+key.properties
+
+# Certificados e chaves privadas
+*.p12
+*.pem
+*.key
+*.cer
+
+# Firebase service account keys
+*-firebase-adminsdk-*.json
+serviceAccountKey.json
+
+
+# ───────────────────────────────────────────────────────
+# FLUTTER / DART — Arquivos gerados
+# ───────────────────────────────────────────────────────
+
+# Dependências
+.dart_tool/
+
+# Build outputs
+build/
+
+# Cache do Flutter
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# ───────────────────────────────────────────────────────
+# ANDROID
+# ───────────────────────────────────────────────────────
+
+# Build outputs Android
+android/app/build/
+android/build/
+android/.gradle/
+android/captures/
+android/local.properties
+android/app/release/
+
+# Arquivos de assinatura (já cobertos acima, mas explícito)
+android/app/*.jks
+android/app/*.keystore
+
+# IntelliJ / Android Studio no Android
+android/.idea/
+android/**/*.iml
+
+
+# ───────────────────────────────────────────────────────
+# iOS
+# ───────────────────────────────────────────────────────
+
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/flutter_export_environment.sh
+
+# Build outputs iOS
+ios/build/
+ios/DerivedData/
+
+# Arquivos de provisioning e certificados (segurança)
+ios/**/*.mobileprovision
+ios/**/*.p12
+
+
+# ───────────────────────────────────────────────────────
+# FIREBASE / FUNCTIONS
+# ───────────────────────────────────────────────────────
+
+# Dependências Node.js das Cloud Functions (regeneradas com npm install)
+functions/node_modules/
+functions/lib/
+
+# Cache Firebase
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+database-debug.log
+
+
+# ───────────────────────────────────────────────────────
+# VS CODE
+# ───────────────────────────────────────────────────────
+
+# Configurações de workspace (podem conter caminhos locais)
+.vscode/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Histórico de pesquisa e outras configs pessoais
+.vscode/history/
+
+
+# ───────────────────────────────────────────────────────
+# INTELLIJ / ANDROID STUDIO
+# ───────────────────────────────────────────────────────
+
+# Pasta de projeto IntelliJ (configurações locais)
+.idea/
+!.idea/runConfigurations/
+
+# Arquivos de módulo (gerados pelo IDE)
 *.iml
 *.ipr
 *.iws
-.idea/
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
+# Arquivos de workspace
+!.idea/runConfigurations/*.xml
 
-# Flutter/Dart/Pub related
-**/doc/api/
-**/ios/Flutter/.last_build_id
-.dart_tool/
-.flutter-plugins-dependencies
-.pub-cache/
-.pub/
-/build/
-/coverage/
+# Shelf e tasks locais
+.idea/shelf/
+.idea/tasks.xml
+.idea/workspace.xml
+.idea/httpRequests/
 
-# Symbolication related
-app.*.symbols
 
-# Obfuscation related
-app.*.map.json
+# ───────────────────────────────────────────────────────
+# WINDOWS
+# ───────────────────────────────────────────────────────
 
-# Android Studio will place build artifacts here
-/android/app/debug
-/android/app/profile
-/android/app/release
+# Arquivos de sistema Windows
+Thumbs.db
+Thumbs.db:encdata
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
 
-# Android
-android/.gradle/
-android/app/build/
-android/local.properties
+# Arquivos temporários Windows
+*.tmp
+*.temp
+~$*
 
-# iOS
-ios/Pods/
-ios/.symlinks/
-ios/Flutter/.last_build_id
 
-# Firebase
-android/app/google-services.json
-ios/Runner/GoogleService-Info.plist
+# ───────────────────────────────────────────────────────
+# macOS
+# ───────────────────────────────────────────────────────
+
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+
+# ───────────────────────────────────────────────────────
+# LINUX
+# ───────────────────────────────────────────────────────
+
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+
+# ───────────────────────────────────────────────────────
+# COVERAGE / TESTES
+# ───────────────────────────────────────────────────────
+
+# Relatórios de cobertura gerados
+coverage/
+*.lcov
+
+
+# ───────────────────────────────────────────────────────
+# Voz Animal
+# ───────────────────────────────────────────────────────
+
+# Pasta duplicada (projeto dentro do projeto)
+voz-animal/
+
+# Mocks de teste que não devem ser commitados
+test/fixtures/real_data/
+
+# Logs locais
+*.log
