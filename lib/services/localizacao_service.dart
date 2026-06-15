@@ -25,7 +25,6 @@ class LocalizacaoService {
           'GPS desativado. Ative a localização nas configurações do dispositivo.');
     }
 
-    // Verifica e solicita permissão
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
@@ -41,12 +40,12 @@ class LocalizacaoService {
           'Acesse as configurações do app para habilitar.');
     }
 
-    // Obtém posição com alta precisão (melhor para marcar ocorrências)
+    // Obtém posição com alta precisão
     final Position position = await Geolocator.getCurrentPosition(
       locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.best,   // GPS chip + triangulação
-        distanceFilter: 0,                 // sem filtro de distância
-        timeLimit: Duration(seconds: 20),  // timeout para não travar a UI
+        accuracy: LocationAccuracy.best,
+        distanceFilter: 0,
+        timeLimit: Duration(seconds: 20),
       ),
     );
 

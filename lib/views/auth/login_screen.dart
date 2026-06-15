@@ -6,24 +6,19 @@ import '../../services/auth_service.dart';
 import '../router_screen.dart';
 import 'cadastro_screen.dart';
 
-
 class _CnpjInputFormatter extends TextInputFormatter {
   @override
-  TextEditingValue formatEditUpdate(
-      TextEditingValue oldValue, TextEditingValue newValue) {
-    final digits = newValue.text.replaceAll(RegExp(r'\D'), '');
-    final buf = StringBuffer();
-    for (var i = 0; i < digits.length && i < 14; i++) {
-      if (i == 2 || i == 5) buf.write('.');
-      if (i == 8) buf.write('/');
-      if (i == 12) buf.write('-');
-      buf.write(digits[i]);
+  TextEditingValue formatEditUpdate(TextEditingValue old, TextEditingValue nv) {
+    final d = nv.text.replaceAll(RegExp(r'\D'), '');
+    final b = StringBuffer();
+    for (var i = 0; i < d.length && i < 14; i++) {
+      if (i == 2 || i == 5) b.write('.');
+      if (i == 8) b.write('/');
+      if (i == 12) b.write('-');
+      b.write(d[i]);
     }
-    final text = buf.toString();
-    return TextEditingValue(
-      text: text,
-      selection: TextSelection.collapsed(offset: text.length),
-    );
+    final t = b.toString();
+    return TextEditingValue(text: t, selection: TextSelection.collapsed(offset: t.length));
   }
 }
 
@@ -37,12 +32,12 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _email = TextEditingController();
-  final _cnpj = TextEditingController();
-  final _senha = TextEditingController();
+  final _email   = TextEditingController();
+  final _cnpj    = TextEditingController();
+  final _senha   = TextEditingController();
 
   bool _senhaVisivel = false;
-  bool _carregando = false;
+  bool _carregando   = false;
 
   bool get _isOrgao => widget.tipo == TipoUsuario.orgao;
 
@@ -52,6 +47,48 @@ class _LoginScreenState extends State<LoginScreen> {
     _cnpj.dispose();
     _senha.dispose();
     super.dispose();
+  }
+
+  Future<void> _entrar() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _carregando = true);
+
+    final resultado = await context.read<AuthService>().login(
+          email:        _email.text.trim(),
+          senha:        _senha.text,
+          tipoEsperado: widget.tipo,
+          cnpj:         _isOrgao ? _cnpj.text.trim() : null,
+        );
+
+    if (!mounted) return;
+    setState(() => _carregando = false);
+
+    if (resultado == LoginResultado.sucesso) {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const RouterScreen()),
+        (_) => false,
+      );
+      return;
+    }
+
+    final msg = switch (resultado) {
+      LoginResultado.usuarioNaoEncontrado =>
+          'Nenhuma conta encontrada com este e-mail.',
+      LoginResultado.senhaIncorreta =>
+          'Senha incorreta. Verifique e tente novamente.',
+      LoginResultado.cnpjIncorreto =>
+          'CNPJ não corresponde ao cadastro deste e-mail.',
+      _ => 'Erro ao fazer login. Tente novamente.',
+    };
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: Colors.red.shade700,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   @override
@@ -77,7 +114,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     size: 64, color: cor),
                 const SizedBox(height: 24),
 
-                // E-mail (ambos)
+                // E-mail
                 TextFormField(
                   controller: _email,
                   keyboardType: TextInputType.emailAddress,
@@ -88,15 +125,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   validator: (v) {
                     if (v == null || v.trim().isEmpty) return 'Informe o e-mail';
-                    if (!v.contains('@') || !v.contains('.')) {
-                      return 'E-mail inválido';
-                    }
+                    if (!v.contains('@') || !v.contains('.')) return 'E-mail inválido';
                     return null;
                   },
                 ),
                 const SizedBox(height: 16),
 
-                // CNPJ (apenas órgão)
+                // CNPJ
                 if (_isOrgao) ...[
                   TextFormField(
                     controller: _cnpj,
@@ -109,15 +144,14 @@ class _LoginScreenState extends State<LoginScreen> {
                       border: OutlineInputBorder(),
                     ),
                     validator: (v) {
-                      final digits = (v ?? '').replaceAll(RegExp(r'\D'), '');
-                      if (digits.length != 14) return 'CNPJ inválido (14 dígitos)';
-                      return null;
+                      final d = (v ?? '').replaceAll(RegExp(r'\D'), '');
+                      return d.length != 14 ? 'CNPJ inválido (14 dígitos)' : null;
                     },
                   ),
                   const SizedBox(height: 16),
                 ],
 
-                // Senha (ambos)
+                // Senha
                 TextFormField(
                   controller: _senha,
                   obscureText: !_senhaVisivel,
@@ -139,6 +173,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 28),
 
+                // Botão entrar
                 SizedBox(
                   height: 48,
                   child: ElevatedButton(
@@ -184,36 +219,5 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       ),
     );
-  }
-
-  Future<void> _entrar() async {
-    if (!_formKey.currentState!.validate()) return;
-    setState(() => _carregando = true);
-
-    final ok = await context.read<AuthService>().login(
-          email: _email.text.trim(),
-          senha: _senha.text,
-          tipoEsperado: widget.tipo,
-          cnpj: _isOrgao ? _cnpj.text.trim() : null,
-        );
-
-    setState(() => _carregando = false);
-    if (!mounted) return;
-
-    if (ok) {
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => const RouterScreen()),
-        (route) => false,
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_isOrgao
-              ? 'E-mail, CNPJ ou senha incorretos.'
-              : 'E-mail ou senha incorretos.'),
-        ),
-      );
-    }
   }
 }

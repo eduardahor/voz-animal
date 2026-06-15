@@ -1,75 +1,114 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/usuario.dart';
 import '../models/tipo_usuario.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 
+const _kUserId    = 'session_user_id';
+const _kUserTipo  = 'session_user_tipo';
+
+enum LoginResultado {
+  sucesso,
+  usuarioNaoEncontrado,
+  senhaIncorreta,
+  cnpjIncorreto,
+  erro,
+}
 
 class AuthService extends ChangeNotifier {
+  AuthService() {
+    _restaurarSessao();
+  }
+
   Usuario? _usuarioAtual;
-  final List<_Conta> _contas = [];
+  bool _carregandoSessao = true;
 
-  Usuario? get usuarioAtual => _usuarioAtual;
-  bool get autenticado => _usuarioAtual != null;
+  Usuario? get usuarioAtual    => _usuarioAtual;
+  bool     get autenticado     => _usuarioAtual != null;
+  bool     get logado          => autenticado;
+  bool     get carregandoSessao => _carregandoSessao;
 
-  bool get logado => autenticado;
-  bool get isOrgao =>
-      _usuarioAtual != null && _usuarioAtual!.tipo == TipoUsuario.orgao;
-  bool get isCidadao =>
-      _usuarioAtual != null && _usuarioAtual!.tipo == TipoUsuario.cidadao;
+  bool get isOrgao   => _usuarioAtual?.tipo == TipoUsuario.orgao;
+  bool get isCidadao => _usuarioAtual?.tipo == TipoUsuario.cidadao;
 
-  Future<bool> login({
+  final _db = FirebaseFirestore.instance;
+
+
+  Future<void> _restaurarSessao() async {
+    try {
+      final prefs  = await SharedPreferences.getInstance();
+      final userId = prefs.getString(_kUserId);
+      final tipo   = prefs.getString(_kUserTipo);
+
+      if (userId == null || tipo == null) {
+        _carregandoSessao = false;
+        notifyListeners();
+        return;
+      }
+
+      final doc = await _db.collection('usuarios').doc(userId).get();
+      if (!doc.exists) {
+        await _limparSessao();
+        return;
+      }
+
+      _usuarioAtual = _docToUsuario(doc);
+    } catch (e) {
+      if (kDebugMode) print('[AuthService] Erro ao restaurar sessão: $e');
+    } finally {
+      _carregandoSessao = false;
+      notifyListeners();
+    }
+  }
+
+
+  Future<LoginResultado> login({
     required String email,
     required String senha,
     required TipoUsuario tipoEsperado,
     String? cnpj,
   }) async {
-    if (email.isEmpty || senha.length < 4) return false;
+    if (email.isEmpty || senha.length < 8) return LoginResultado.erro;
 
     try {
-      final querySnapshot = await FirebaseFirestore.instance
+      final snap = await _db
           .collection('usuarios')
           .where('email', isEqualTo: email.toLowerCase().trim())
-          .where('tipo', isEqualTo: tipoEsperado.name) // orgao ou cidadao
+          .where('tipo', isEqualTo: tipoEsperado.name)
           .limit(1)
           .get();
 
-      if (querySnapshot.docs.isEmpty) return false; // Usuário não encontrado no banco
 
-      final dados = querySnapshot.docs.first.data();
-      final idDocumento = querySnapshot.docs.first.id;
+      if (snap.docs.isEmpty) return LoginResultado.usuarioNaoEncontrado;
 
-      if (dados['senha'] != null && dados['senha'] != senha) return false;
+      final doc   = snap.docs.first;
+      final dados = doc.data();
+
+      if (dados['senha'] != senha) return LoginResultado.senhaIncorreta;
+
 
       if (tipoEsperado == TipoUsuario.orgao) {
-        if (cnpj == null || cnpj.trim().isEmpty) return false;
-
-        final cnpjInformado = cnpj.replaceAll(RegExp(r'\D'), '');
-        final cnpjCadastrado = (dados['cnpj'] ?? '').toString().replaceAll(RegExp(r'\D'), '');
-
-        if (cnpjInformado != cnpjCadastrado) return false;
+        if (cnpj == null || cnpj.trim().isEmpty) return LoginResultado.cnpjIncorreto;
+        final informado   = cnpj.replaceAll(RegExp(r'\D'), '');
+        final cadastrado  = (dados['cnpj'] ?? '').toString().replaceAll(RegExp(r'\D'), '');
+        if (informado != cadastrado) return LoginResultado.cnpjIncorreto;
       }
 
-      _usuarioAtual = Usuario(
-        id: idDocumento,
-        nome: dados['orgaonome'] ?? dados['nome'] ?? 'Órgão Responsável',
-        email: email,
-        senha: senha,
-        tipo: tipoEsperado,
-        cnpj: dados['cnpj'],
-        cpf: dados['cpf'],
-      );
+      _usuarioAtual = _docToUsuario(doc);
 
+      // Persiste sessão localmente
+      await _salvarSessao(_usuarioAtual!);
       notifyListeners();
-      return true;
+      return LoginResultado.sucesso;
     } catch (e) {
-      if (kDebugMode) print('Erro no login do Firebase: $e');
-      return false;
+      if (kDebugMode) print('[AuthService] Erro no login: $e');
+      return LoginResultado.erro;
     }
   }
 
 
-  String? cadastrar({
+  Future<String?> cadastrar({
     required String nome,
     required String email,
     required String senha,
@@ -77,15 +116,14 @@ class AuthService extends ChangeNotifier {
     String? orgaoNome,
     String? cnpj,
     String? cpf,
-  }) {
+    String? telefone,
+  }) async {
     if (nome.trim().isEmpty) return 'Informe o nome.';
-    if (!email.contains('@')) return 'E-mail inválido.';
+    if (!email.contains('@') || !email.contains('.')) return 'E-mail inválido.';
     if (senha.length < 8) return 'Senha precisa ter ao menos 8 caracteres.';
 
     if (tipo == TipoUsuario.orgao) {
-      if (orgaoNome == null || orgaoNome.trim().isEmpty) {
-        return 'Informe o nome do órgão.';
-      }
+      if (orgaoNome == null || orgaoNome.trim().isEmpty) return 'Informe o nome do órgão.';
       final cnpjLimpo = (cnpj ?? '').replaceAll(RegExp(r'\D'), '');
       if (cnpjLimpo.length != 14) return 'CNPJ inválido (14 dígitos).';
     }
@@ -93,83 +131,163 @@ class AuthService extends ChangeNotifier {
     if (tipo == TipoUsuario.cidadao) {
       final cpfLimpo = (cpf ?? '').replaceAll(RegExp(r'\D'), '');
       if (cpfLimpo.length != 11) return 'CPF inválido (11 dígitos).';
+
+      final foneLimpo = (telefone ?? '').replaceAll(RegExp(r'\D'), '');
+      if (foneLimpo.length < 10 || foneLimpo.length > 11) {
+        return 'Telefone inválido. Informe DDD + número.';
+      }
     }
 
-    // Verificação de duplicidades
-    final emailDuplicado = _contas.any(
-      (c) => c.email.toLowerCase() == email.toLowerCase() && c.tipo == tipo,
-    );
-    if (emailDuplicado) return 'Já existe uma conta com este e-mail.';
+    try {
+      // Verifica e-mail duplicado no Firestore
+      final emailSnap = await _db
+          .collection('usuarios')
+          .where('email', isEqualTo: email.toLowerCase().trim())
+          .where('tipo', isEqualTo: tipo.name)
+          .limit(1)
+          .get();
+      if (emailSnap.docs.isNotEmpty) return 'Já existe uma conta com este e-mail.';
 
-    if (tipo == TipoUsuario.cidadao && cpf != null) {
-      final cpfLimpo = cpf.replaceAll(RegExp(r'\D'), '');
-      final cpfDuplicado = _contas.any(
-        (c) =>
-            c.tipo == TipoUsuario.cidadao &&
-            (c.cpf ?? '').replaceAll(RegExp(r'\D'), '') == cpfLimpo,
+      // Verifica CPF duplicado
+      if (tipo == TipoUsuario.cidadao && cpf != null) {
+        final cpfLimpo = cpf.replaceAll(RegExp(r'\D'), '');
+        final cpfSnap  = await _db
+            .collection('usuarios')
+            .where('tipo', isEqualTo: tipo.name)
+            .where('cpf', isEqualTo: cpfLimpo)
+            .limit(1)
+            .get();
+        if (cpfSnap.docs.isNotEmpty) return 'Já existe uma conta com este CPF.';
+      }
+
+      // Verifica CNPJ duplicado
+      if (tipo == TipoUsuario.orgao && cnpj != null) {
+        final cnpjLimpo = cnpj.replaceAll(RegExp(r'\D'), '');
+        final cnpjSnap  = await _db
+            .collection('usuarios')
+            .where('tipo', isEqualTo: tipo.name)
+            .where('cnpj', isEqualTo: cnpjLimpo)
+            .limit(1)
+            .get();
+        if (cnpjSnap.docs.isNotEmpty) return 'Já existe uma conta com este CNPJ.';
+      }
+
+      // Salva no Firestore
+      final ref = _db.collection('usuarios').doc();
+      final foneLimpo = (telefone ?? '').replaceAll(RegExp(r'\D'), '');
+
+      await ref.set({
+        'nome':      tipo == TipoUsuario.orgao ? (orgaoNome ?? nome) : nome,
+        'email':     email.toLowerCase().trim(),
+        'senha':     senha,
+        'tipo':      tipo.name,
+        if (tipo == TipoUsuario.orgao) 'orgaoNome': orgaoNome?.trim(),
+        if (tipo == TipoUsuario.orgao && cnpj != null)
+          'cnpj': cnpj.replaceAll(RegExp(r'\D'), ''),
+        if (tipo == TipoUsuario.cidadao && cpf != null)
+          'cpf': cpf.replaceAll(RegExp(r'\D'), ''),
+        if (tipo == TipoUsuario.cidadao && foneLimpo.isNotEmpty)
+          'telefone': foneLimpo,
+        'criadoEm': FieldValue.serverTimestamp(),
+      });
+
+      _usuarioAtual = Usuario(
+        id:        ref.id,
+        nome:      tipo == TipoUsuario.orgao ? (orgaoNome ?? nome) : nome,
+        email:     email.toLowerCase().trim(),
+        senha:     senha,
+        tipo:      tipo,
+        cnpj:      tipo == TipoUsuario.orgao ? cnpj?.replaceAll(RegExp(r'\D'), '') : null,
+        cpf:       tipo == TipoUsuario.cidadao ? cpf?.replaceAll(RegExp(r'\D'), '') : null,
+        telefone:  tipo == TipoUsuario.cidadao ? foneLimpo : null,
       );
-      if (cpfDuplicado) return 'Já existe uma conta com este CPF.';
+
+      await _salvarSessao(_usuarioAtual!);
+      notifyListeners();
+      return null; // sucesso
+    } catch (e) {
+      if (kDebugMode) print('[AuthService] Erro no cadastro: $e');
+      return 'Erro ao criar conta. Tente novamente.';
     }
-
-    if (tipo == TipoUsuario.orgao && cnpj != null) {
-      final cnpjLimpo = cnpj.replaceAll(RegExp(r'\D'), '');
-      final cnpjDuplicado = _contas.any(
-        (c) =>
-            c.tipo == TipoUsuario.orgao &&
-            (c.cnpj ?? '').replaceAll(RegExp(r'\D'), '') == cnpjLimpo,
-      );
-      if (cnpjDuplicado) return 'Já existe uma conta com este CNPJ.';
-    }
-
-
-    final conta = _Conta(
-      id: 'u-${DateTime.now().millisecondsSinceEpoch}',
-      nome: tipo == TipoUsuario.orgao ? (orgaoNome ?? nome) : nome,
-      email: email,
-      senha: senha,
-      tipo: tipo,
-      cnpj: cnpj,
-      cpf: cpf,
-    );
-    _contas.add(conta);
-    _usuarioAtual = Usuario(
-      id: conta.id,
-      nome: conta.nome,
-      email: conta.email,
-      senha: conta.senha,
-      tipo: conta.tipo,
-      cnpj: conta.cnpj,
-      cpf: conta.cpf,
-    );
-    notifyListeners();
-    return null;
   }
 
-  void logout() {
+
+  Future<String?> atualizarPerfil({
+    required String nome,
+    required String email,
+    String? telefone,
+    String? cpf,
+    String? cnpj,
+    String? novaSenha,
+  }) async {
+    final u = _usuarioAtual;
+    if (u == null) return 'Sessão expirada.';
+
+    try {
+      final updates = <String, dynamic>{
+        'nome':  nome.trim(),
+        'email': email.toLowerCase().trim(),
+        if (telefone != null && telefone.isNotEmpty)
+          'telefone': telefone.replaceAll(RegExp(r'\D'), ''),
+        if (cpf != null && cpf.isNotEmpty)
+          'cpf': cpf.replaceAll(RegExp(r'\D'), ''),
+        if (cnpj != null && cnpj.isNotEmpty)
+          'cnpj': cnpj.replaceAll(RegExp(r'\D'), ''),
+        if (novaSenha != null && novaSenha.isNotEmpty)
+          'senha': novaSenha,
+        'atualizadoEm': FieldValue.serverTimestamp(),
+      };
+
+      await _db.collection('usuarios').doc(u.id).update(updates);
+
+      u.nome  = nome.trim();
+      u.email = email.toLowerCase().trim();
+      if (novaSenha != null && novaSenha.isNotEmpty) u.senha = novaSenha;
+      if (telefone != null) u.telefone = telefone.replaceAll(RegExp(r'\D'), '');
+      if (cpf != null) u.cpf = cpf.replaceAll(RegExp(r'\D'), '');
+      if (cnpj != null) u.cnpj = cnpj.replaceAll(RegExp(r'\D'), '');
+
+      notifyListeners();
+      return null;
+    } catch (e) {
+      if (kDebugMode) print('[AuthService] Erro ao atualizar perfil: $e');
+      return 'Erro ao salvar alterações.';
+    }
+  }
+
+
+  Future<void> logout() async {
+    await _limparSessao();
     _usuarioAtual = null;
     notifyListeners();
   }
 
 
-  void atualizarPerfil() => notifyListeners();
-}
+  Future<void> _salvarSessao(Usuario u) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kUserId,   u.id);
+    await prefs.setString(_kUserTipo, u.tipo.name);
+  }
 
-class _Conta {
-  final String id;
-  final String nome;
-  final String email;
-  final String senha;
-  final TipoUsuario tipo;
-  final String? cnpj;
-  final String? cpf;
+  Future<void> _limparSessao() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_kUserId);
+    await prefs.remove(_kUserTipo);
+  }
 
-  _Conta({
-    required this.id,
-    required this.nome,
-    required this.email,
-    required this.senha,
-    required this.tipo,
-    this.cnpj,
-    this.cpf,
-  });
+
+  static Usuario _docToUsuario(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final d = doc.data()!;
+    final tipo = d['tipo'] == 'orgao' ? TipoUsuario.orgao : TipoUsuario.cidadao;
+    return Usuario(
+      id:       doc.id,
+      nome:     d['orgaoNome'] ?? d['nome'] ?? '',
+      email:    d['email']  ?? '',
+      senha:    d['senha']  ?? '',
+      tipo:     tipo,
+      cnpj:     d['cnpj']      as String?,
+      cpf:      d['cpf']       as String?,
+      telefone: d['telefone']  as String?,
+    );
+  }
 }
