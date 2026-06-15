@@ -1,6 +1,6 @@
 import 'tipo_usuario.dart';
 
-/// Modelo de usuário autenticado (cidadão ou órgão).
+
 class Usuario {
   final String id;
   String nome;
@@ -9,6 +9,7 @@ class Usuario {
   String? orgaoNome;
   String? cnpj;
   String? cpf;
+  String? telefone;
   final TipoUsuario tipo;
 
   Usuario({
@@ -19,6 +20,7 @@ class Usuario {
     this.orgaoNome,
     this.cnpj,
     this.cpf,
+    this.telefone,
     required this.tipo,
   });
 }
