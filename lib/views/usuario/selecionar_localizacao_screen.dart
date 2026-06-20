@@ -529,7 +529,7 @@ class _SelecionarLocalizacaoScreenState
 
     return Padding(
       padding: const EdgeInsets.only(top: 6, left: 4),
-      child: Text(texto!, style: TextStyle(fontSize: 12, color: cor)),
+      child: Text(texto, style: TextStyle(fontSize: 12, color: cor)),
     );
   }
 }
