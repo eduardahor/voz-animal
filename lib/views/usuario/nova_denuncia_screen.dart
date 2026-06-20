@@ -207,7 +207,7 @@ class _NovaDenunciaScreenState extends State<NovaDenunciaScreen> {
                 maxLines: 5,
                 decoration: const InputDecoration(
                   border: OutlineInputBorder(),
-                  hintText: 'Descreva o que aconteceu (mín. 20 caracteres)',
+                  hintText: 'Descreva o que aconteceu, se útil, um ponto de referência do local.',
                 ),
                 validator: (v) => (v == null || v.trim().length < 20)
                     ? 'Mínimo de 20 caracteres'

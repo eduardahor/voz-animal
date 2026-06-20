@@ -4,7 +4,9 @@ const List<String> ufsBrasil = [
 ];
 
 class Localizacao {
-  String endereco;
+  String rua;
+  String numero;
+  String bairro;
   String cidade;
   String cep;
   double? latitude;
@@ -14,10 +16,12 @@ class Localizacao {
   String _estado;
 
   Localizacao({
-    required this.endereco,
+    required this.rua,
+    this.numero = '',
+    this.bairro = '',
     required this.cidade,
     required String estado,
-    required this.cep,
+    this.cep = '',
     this.latitude,
     this.longitude,
     this.precisaoMetros,
@@ -26,7 +30,16 @@ class Localizacao {
   String get estado => _estado;
   set estado(String v) => _estado = v.toUpperCase();
 
-  /// Localização veio do GPS.
+  /// Endereço completo formatado para exibição (rua, número — bairro).
+  String get endereco {
+    final partes = <String>[];
+    if (rua.trim().isNotEmpty) {
+      partes.add(numero.trim().isNotEmpty ? '${rua.trim()}, ${numero.trim()}' : rua.trim());
+    }
+    if (bairro.trim().isNotEmpty) partes.add(bairro.trim());
+    return partes.join(' — ');
+  }
+
   bool get temGps => latitude != null && longitude != null;
 
   /// Precisão do GPS como texto legível.
@@ -46,37 +59,43 @@ class Localizacao {
     return 0xFFFF5722;
   }
 
-  static final RegExp _regexCep     = RegExp(r'^\d{5}-?\d{3}$');
-  static final RegExp _regexNumero  = RegExp(r'\d+');
+  static final RegExp _regexCep = RegExp(r'^\d{5}-?\d{3}$');
 
+  /// Validação pensada para o cenário real: um cidadão denunciando uma
+  /// ocorrência de rua quase nunca sabe o CEP ou o número exato do imóvel.
+  /// Por isso CEP e número são sempre OPCIONAIS — o que é obrigatório é
+  /// haver uma referência mínima de onde a ocorrência aconteceu:
+  /// (rua OU GPS) + cidade + estado.
   bool valido() {
-    // Se tem coordenadas GPS, o endereço mínimo é aceito
     if (temGps) {
-      return endereco.trim().isNotEmpty;
+      return true;
     }
-    // Validação completa para endereço manual
-    return endereco.trim().length >= 5 &&
-        _regexNumero.hasMatch(endereco) &&
+
+    final cepOk = cep.trim().isEmpty || _regexCep.hasMatch(cep.trim());
+
+    return rua.trim().length >= 3 &&
         cidade.trim().length >= 2 &&
         ufsBrasil.contains(_estado) &&
-        _regexCep.hasMatch(cep.trim());
+        cepOk;
   }
 
   String resumo() {
     if (temGps && cidade.isEmpty) {
-      return '$endereco (GPS: ${latitude!.toStringAsFixed(5)}, '
-          '${longitude!.toStringAsFixed(5)})';
+      return '${endereco.isEmpty ? "Local marcado no mapa" : endereco} '
+          '(GPS: ${latitude!.toStringAsFixed(5)}, ${longitude!.toStringAsFixed(5)})';
     }
-    return '$endereco — $cidade/$_estado'
+    final end = endereco.isEmpty ? 'Endereço não detalhado' : endereco;
+    return '$end — $cidade/$_estado'
         '${cep.isNotEmpty ? " (CEP $cep)" : ""}';
   }
 
   @override
   String toString() => resumo();
 
-
   Map<String, dynamic> toMap() => {
-    'endereco': endereco,
+    'rua': rua,
+    'numero': numero,
+    'bairro': bairro,
     'cidade': cidade,
     'estado': _estado,
     'cep': cep,
@@ -86,10 +105,12 @@ class Localizacao {
   };
 
   factory Localizacao.fromMap(Map<String, dynamic> m) => Localizacao(
-    endereco: m['endereco'] as String,
+    rua: (m['rua'] ?? m['endereco'] ?? '') as String,
+    numero: (m['numero'] ?? '') as String,
+    bairro: (m['bairro'] ?? '') as String,
     cidade: m['cidade'] as String,
     estado: m['estado'] as String,
-    cep: m['cep'] as String,
+    cep: (m['cep'] ?? '') as String,
     latitude: (m['latitude'] as num?)?.toDouble(),
     longitude: (m['longitude'] as num?)?.toDouble(),
     precisaoMetros: (m['precisaoMetros'] as num?)?.toDouble(),
