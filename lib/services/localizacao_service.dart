@@ -4,6 +4,7 @@ import 'package:geocoding/geocoding.dart';
 import 'package:http/http.dart' as http;
 import '../models/localizacao.dart';
 
+
 sealed class GpsResult {
   const GpsResult();
 }
@@ -59,13 +60,13 @@ class LocalizacaoService {
       if (permission == LocationPermission.denied) {
         return const GpsFailure(
             'Permissão de localização negada. '
-            'Permita o acesso para usar esta função.');
+                'Permita o acesso para usar esta função.');
       }
     }
     if (permission == LocationPermission.deniedForever) {
       return const GpsFailure(
           'Permissão de localização bloqueada permanentemente. '
-          'Acesse as configurações do app para habilitar.');
+              'Acesse as configurações do app para habilitar.');
     }
 
     final Position position = await Geolocator.getCurrentPosition(
@@ -98,9 +99,9 @@ class LocalizacaoService {
       final numero = p.subThoroughfare ?? '';
       final bairro = p.subLocality ?? '';
       final cidade = p.subAdministrativeArea
-                  ?? p.administrativeArea
-                  ?? p.locality
-                  ?? '';
+          ?? p.administrativeArea
+          ?? p.locality
+          ?? '';
       final estado = normalizarEstado(p.administrativeArea ?? '');
       final cep    = formatarCep(p.postalCode ?? '');
 
@@ -108,7 +109,7 @@ class LocalizacaoService {
         rua: rua.isNotEmpty
             ? rua
             : 'GPS (${position.latitude.toStringAsFixed(5)}, '
-              '${position.longitude.toStringAsFixed(5)})',
+            '${position.longitude.toStringAsFixed(5)})',
         numero: numero,
         bairro: bairro,
         cidade: cidade,
@@ -121,7 +122,7 @@ class LocalizacaoService {
     } catch (_) {
       return GpsSuccess(Localizacao(
         rua: 'Lat: ${position.latitude.toStringAsFixed(6)}, '
-             'Lon: ${position.longitude.toStringAsFixed(6)}',
+            'Lon: ${position.longitude.toStringAsFixed(6)}',
         cidade: '',
         estado: '',
         latitude: position.latitude,
@@ -162,6 +163,7 @@ class LocalizacaoService {
   }
 
   bool validarEndereco(Localizacao loc) => loc.valido();
+
 
   static String normalizarEstado(String raw) {
     final mapa = {

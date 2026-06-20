@@ -6,7 +6,7 @@ import 'services/auth_service.dart';
 import 'services/denuncia_service.dart';
 import 'services/localizacao_service.dart';
 import 'views/router_screen.dart';
- import 'firebase_options.dart'; // gerado por: flutterfire configure
+import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

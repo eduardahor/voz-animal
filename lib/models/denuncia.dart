@@ -21,6 +21,10 @@ class Denuncia {
   final DateTime? acceptedAt;
   final DateTime? devolvidaAt;
   final Map<String, DateTime> bloqueadosAte;
+  final String? denuncianteNome;
+  final String? denuncianteTelefone;
+  final String? denuncianteEmail;
+  final String? denuncianteCpf;
 
   final DateTime criadoEm;
   final DateTime? atualizadoEm;
@@ -40,9 +44,12 @@ class Denuncia {
     this.acceptedAt,
     this.devolvidaAt,
     this.bloqueadosAte = const {},
+    this.denuncianteNome,
+    this.denuncianteTelefone,
+    this.denuncianteEmail,
+    this.denuncianteCpf,
     this.atualizadoEm,
   });
-
 
   factory Denuncia.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data()!;
@@ -69,6 +76,10 @@ class Denuncia {
       acceptedAt: _ts(data['acceptedAt']),
       devolvidaAt: _ts(data['devolvidaAt']),
       bloqueadosAte: bloq,
+      denuncianteNome: data['denuncianteNome'] as String?,
+      denuncianteTelefone: data['denuncianteTelefone'] as String?,
+      denuncianteEmail: data['denuncianteEmail'] as String?,
+      denuncianteCpf: data['denuncianteCpf'] as String?,
       criadoEm: _ts(data['criadoEm']) ?? DateTime.now(),
       atualizadoEm: _ts(data['atualizadoEm']),
     );
@@ -90,11 +101,15 @@ class Denuncia {
             devolvidaAt != null ? Timestamp.fromDate(devolvidaAt!) : null,
         'bloqueadosAte': bloqueadosAte
             .map((k, v) => MapEntry(k, Timestamp.fromDate(v))),
+        if (denuncianteNome != null) 'denuncianteNome': denuncianteNome,
+        if (denuncianteTelefone != null)
+          'denuncianteTelefone': denuncianteTelefone,
+        if (denuncianteEmail != null) 'denuncianteEmail': denuncianteEmail,
+        if (denuncianteCpf != null) 'denuncianteCpf': denuncianteCpf,
       };
 
   static DateTime? _ts(dynamic v) =>
       v is Timestamp ? v.toDate() : null;
-
 
   bool get estaAberta => status == StatusDenuncia.aberta;
 
@@ -132,6 +147,10 @@ class Denuncia {
         acceptedAt: acceptedAt ?? this.acceptedAt,
         devolvidaAt: devolvidaAt ?? this.devolvidaAt,
         bloqueadosAte: bloqueadosAte ?? this.bloqueadosAte,
+        denuncianteNome: denuncianteNome,
+        denuncianteTelefone: denuncianteTelefone,
+        denuncianteEmail: denuncianteEmail,
+        denuncianteCpf: denuncianteCpf,
         criadoEm: criadoEm,
         atualizadoEm: DateTime.now(),
       );
