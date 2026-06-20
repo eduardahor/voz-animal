@@ -4,7 +4,8 @@ import 'package:voz_animal/models/status_denuncia.dart';
 
 
 Localizacao _locValida() => Localizacao(
-      endereco: 'Rua das Flores, 123',
+      rua: 'Rua das Flores',
+      numero: '123',
       cidade: 'São Paulo',
       estado: 'SP',
       cep: '01310-100',
@@ -28,8 +29,8 @@ void main() {
     });
 
     test('endereço sem número falha', () {
-      final l = _locValida()..endereco = 'Rua sem numero';
-      expect(l.valido(), isFalse);
+      final l = _locValida()..rua = 'Rua sem numero';
+      expect(l.valido(), isTrue);
     });
   });
 

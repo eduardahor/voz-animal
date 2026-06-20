@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:http/http.dart' as http;
 import '../models/localizacao.dart';
 
 sealed class GpsResult {
@@ -16,16 +18,41 @@ final class GpsFailure extends GpsResult {
   const GpsFailure(this.mensagem);
 }
 
+
+sealed class CepResult {
+  const CepResult();
+}
+
+final class CepSuccess extends CepResult {
+  final String rua;
+  final String bairro;
+  final String cidade;
+  final String estado;
+  const CepSuccess({
+    required this.rua,
+    required this.bairro,
+    required this.cidade,
+    required this.estado,
+  });
+}
+
+final class CepNaoEncontrado extends CepResult {
+  const CepNaoEncontrado();
+}
+
+final class CepFalhaRede extends CepResult {
+  const CepFalhaRede();
+}
+
 class LocalizacaoService {
+
   Future<GpsResult> obterLocalizacaoAtual() async {
-    // Verifica se o serviço de GPS está ativado no dispositivo
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       return const GpsFailure(
           'GPS desativado. Ative a localização nas configurações do dispositivo.');
     }
 
-    // Verifica e solicita permissão
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
@@ -41,16 +68,14 @@ class LocalizacaoService {
           'Acesse as configurações do app para habilitar.');
     }
 
-    // Obtém posição com alta precisão (melhor para marcar ocorrências)
     final Position position = await Geolocator.getCurrentPosition(
       locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.best,   // GPS chip + triangulação
-        distanceFilter: 0,                 // sem filtro de distância
-        timeLimit: Duration(seconds: 20),  // timeout para não travar a UI
+        accuracy: LocationAccuracy.best,
+        distanceFilter: 0,
+        timeLimit: Duration(seconds: 20),
       ),
     );
 
-    // Reverse geocoding: reverte as coordenadas para texto legivel
     try {
       final placemarks = await placemarkFromCoordinates(
         position.latitude,
@@ -59,10 +84,9 @@ class LocalizacaoService {
 
       if (placemarks.isEmpty) {
         return GpsSuccess(Localizacao(
-          endereco: 'Localização GPS',
+          rua: 'Localização GPS',
           cidade: '',
           estado: '',
-          cep: '',
           latitude: position.latitude,
           longitude: position.longitude,
           precisaoMetros: position.accuracy,
@@ -70,29 +94,23 @@ class LocalizacaoService {
       }
 
       final p = placemarks.first;
-
-      // Monta endereço no padrão brasileiro
-      final rua    = p.street    ?? p.thoroughfare  ?? '';
+      final rua    = p.street ?? p.thoroughfare ?? '';
       final numero = p.subThoroughfare ?? '';
-      final bairro = p.subLocality ?? p.locality    ?? '';
+      final bairro = p.subLocality ?? '';
       final cidade = p.subAdministrativeArea
                   ?? p.administrativeArea
                   ?? p.locality
                   ?? '';
-      final estado = _normalizarEstado(p.administrativeArea ?? '');
-      final cep    = _formatarCep(p.postalCode ?? '');
-
-      final enderecoCompleto = [
-        if (rua.isNotEmpty) rua,
-        if (numero.isNotEmpty) numero,
-        if (bairro.isNotEmpty && bairro != rua) bairro,
-      ].join(', ');
+      final estado = normalizarEstado(p.administrativeArea ?? '');
+      final cep    = formatarCep(p.postalCode ?? '');
 
       return GpsSuccess(Localizacao(
-        endereco: enderecoCompleto.isNotEmpty
-            ? enderecoCompleto
-            : 'Localização GPS (${position.latitude.toStringAsFixed(5)}, '
+        rua: rua.isNotEmpty
+            ? rua
+            : 'GPS (${position.latitude.toStringAsFixed(5)}, '
               '${position.longitude.toStringAsFixed(5)})',
+        numero: numero,
+        bairro: bairro,
         cidade: cidade,
         estado: estado,
         cep: cep,
@@ -101,13 +119,11 @@ class LocalizacaoService {
         precisaoMetros: position.accuracy,
       ));
     } catch (_) {
-      // Reverse geocoding falhou — retorna só as coordenadas
       return GpsSuccess(Localizacao(
-        endereco: 'Lat: ${position.latitude.toStringAsFixed(6)}, '
-                  'Lon: ${position.longitude.toStringAsFixed(6)}',
+        rua: 'Lat: ${position.latitude.toStringAsFixed(6)}, '
+             'Lon: ${position.longitude.toStringAsFixed(6)}',
         cidade: '',
         estado: '',
-        cep: '',
         latitude: position.latitude,
         longitude: position.longitude,
         precisaoMetros: position.accuracy,
@@ -115,9 +131,39 @@ class LocalizacaoService {
     }
   }
 
+  // ── Busca por CEP (ViaCEP) ────────────────────────────────────────────────
+  //
+  // Usada para AUTO-PREENCHER rua/bairro/cidade/UF quando o usuário sabe o
+  // CEP — mas o CEP nunca é exigido. Se a busca falhar (CEP não existe, sem
+  // internet, etc.) o usuário simplesmente continua preenchendo manualmente.
+
+  Future<CepResult> buscarPorCep(String cepBruto) async {
+    final digits = cepBruto.replaceAll(RegExp(r'\D'), '');
+    if (digits.length != 8) return const CepNaoEncontrado();
+
+    try {
+      final uri = Uri.parse('https://viacep.com.br/ws/$digits/json/');
+      final resp = await http.get(uri).timeout(const Duration(seconds: 6));
+
+      if (resp.statusCode != 200) return const CepFalhaRede();
+
+      final data = jsonDecode(resp.body) as Map<String, dynamic>;
+      if (data['erro'] == true) return const CepNaoEncontrado();
+
+      return CepSuccess(
+        rua:    (data['logradouro'] as String?) ?? '',
+        bairro: (data['bairro']     as String?) ?? '',
+        cidade: (data['localidade'] as String?) ?? '',
+        estado: (data['uf']         as String?) ?? '',
+      );
+    } catch (_) {
+      return const CepFalhaRede();
+    }
+  }
+
   bool validarEndereco(Localizacao loc) => loc.valido();
 
-  static String _normalizarEstado(String raw) {
+  static String normalizarEstado(String raw) {
     final mapa = {
       'acre': 'AC', 'alagoas': 'AL', 'amapá': 'AP', 'amazonas': 'AM',
       'bahia': 'BA', 'ceará': 'CE', 'distrito federal': 'DF',
@@ -138,7 +184,7 @@ class LocalizacaoService {
     return mapa[raw.trim().toLowerCase()] ?? raw.trim().toUpperCase();
   }
 
-  static String _formatarCep(String raw) {
+  static String formatarCep(String raw) {
     final digits = raw.replaceAll(RegExp(r'\D'), '');
     if (digits.length == 8) return '${digits.substring(0, 5)}-${digits.substring(5)}';
     return raw;

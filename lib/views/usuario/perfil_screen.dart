@@ -57,6 +57,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
   late final TextEditingController _email;
   late final TextEditingController _cnpj;
   late final TextEditingController _cpf;
+  late final TextEditingController _telefone;
   final _senhaAtual = TextEditingController();
   final _novaSenha = TextEditingController();
   final _confirmaSenha = TextEditingController();
@@ -75,6 +76,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
     _email = TextEditingController(text: usuario.email);
     _cnpj = TextEditingController(text: usuario.cnpj ?? '');
     _cpf = TextEditingController(text: usuario.cpf ?? '');
+    _telefone = TextEditingController(text: usuario.telefone ?? '');
   }
 
   @override
@@ -83,6 +85,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
     _email.dispose();
     _cnpj.dispose();
     _cpf.dispose();
+    _telefone.dispose();
     _senhaAtual.dispose();
     _novaSenha.dispose();
     _confirmaSenha.dispose();
@@ -98,14 +101,12 @@ class _PerfilScreenState extends State<PerfilScreen> {
 
   Future<void> _salvar() async {
     if (!_formKey.currentState!.validate()) return;
-
     setState(() => _carregando = true);
-    await Future.delayed(const Duration(milliseconds: 400));
-    if (!mounted) return;
 
-    final auth = context.read<AuthService>();
+    final auth    = context.read<AuthService>();
     final usuario = auth.usuarioAtual!;
 
+    // Valida senha atual antes de prosseguir
     if (_alterarSenha && _senhaAtual.text != usuario.senha) {
       setState(() => _carregando = false);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -114,20 +115,24 @@ class _PerfilScreenState extends State<PerfilScreen> {
       return;
     }
 
-    usuario.nome = _nome.text.trim();
-    usuario.email = _email.text.trim();
-    if (usuario.tipo == TipoUsuario.orgao) {
-      usuario.cnpj = _cnpj.text.trim();
-    } else {
-      usuario.cpf = _cpf.text.trim();
-    }
-    if (_alterarSenha && _novaSenha.text.isNotEmpty) {
-      usuario.senha = _novaSenha.text;
-    }
+    final erro = await auth.atualizarPerfil(
+      nome:      _nome.text.trim(),
+      email:     _email.text.trim(),
+      telefone:  usuario.tipo == TipoUsuario.cidadao ? _telefone.text.trim() : null,
+      cpf:       usuario.tipo == TipoUsuario.cidadao ? _cpf.text.trim()   : null,
+      cnpj:      usuario.tipo == TipoUsuario.orgao   ? _cnpj.text.trim()  : null,
+      novaSenha: _alterarSenha && _novaSenha.text.isNotEmpty ? _novaSenha.text : null,
+    );
 
-    auth.atualizarPerfil();
-    setState(() => _carregando = false);
     if (!mounted) return;
+    setState(() => _carregando = false);
+
+    if (erro != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(erro), backgroundColor: Colors.red.shade700),
+      );
+      return;
+    }
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -158,7 +163,6 @@ class _PerfilScreenState extends State<PerfilScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Avatar
                 Center(
                   child: CircleAvatar(
                     radius: 44,
@@ -219,6 +223,27 @@ class _PerfilScreenState extends State<PerfilScreen> {
                     validator: (v) {
                       final digits = (v ?? '').replaceAll(RegExp(r'\D'), '');
                       if (digits.length != 11) return 'CPF inválido (11 dígitos)';
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
+                if (!isOrgao) ...[
+                  TextFormField(
+                    controller: _telefone,
+                    keyboardType: TextInputType.phone,
+                    decoration: const InputDecoration(
+                      labelText: 'Telefone / WhatsApp',
+                      hintText: '(00) 00000-0000',
+                      prefixIcon: Icon(Icons.phone_outlined),
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (v) {
+                      final d = (v ?? '').replaceAll(RegExp(r'\D'), '');
+                      if (d.isNotEmpty && (d.length < 10 || d.length > 11)) {
+                        return 'Telefone inválido (com DDD)';
+                      }
                       return null;
                     },
                   ),

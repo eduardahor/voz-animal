@@ -7,43 +7,52 @@ import '../../services/auth_service.dart';
 
 class _CpfInputFormatter extends TextInputFormatter {
   @override
-  TextEditingValue formatEditUpdate(
-      TextEditingValue oldValue, TextEditingValue newValue) {
-    final digits = newValue.text.replaceAll(RegExp(r'\D'), '');
-    final buf = StringBuffer();
-    for (var i = 0; i < digits.length && i < 11; i++) {
-      if (i == 3 || i == 6) buf.write('.');
-      if (i == 9) buf.write('-');
-      buf.write(digits[i]);
+  TextEditingValue formatEditUpdate(TextEditingValue old, TextEditingValue nv) {
+    final d = nv.text.replaceAll(RegExp(r'\D'), '');
+    final b = StringBuffer();
+    for (var i = 0; i < d.length && i < 11; i++) {
+      if (i == 3 || i == 6) b.write('.');
+      if (i == 9) b.write('-');
+      b.write(d[i]);
     }
-    final text = buf.toString();
-    return TextEditingValue(
-      text: text,
-      selection: TextSelection.collapsed(offset: text.length),
-    );
+    final t = b.toString();
+    return TextEditingValue(text: t, selection: TextSelection.collapsed(offset: t.length));
   }
 }
-
 
 class _CnpjInputFormatter extends TextInputFormatter {
   @override
-  TextEditingValue formatEditUpdate(
-      TextEditingValue oldValue, TextEditingValue newValue) {
-    final digits = newValue.text.replaceAll(RegExp(r'\D'), '');
-    final buf = StringBuffer();
-    for (var i = 0; i < digits.length && i < 14; i++) {
-      if (i == 2 || i == 5) buf.write('.');
-      if (i == 8) buf.write('/');
-      if (i == 12) buf.write('-');
-      buf.write(digits[i]);
+  TextEditingValue formatEditUpdate(TextEditingValue old, TextEditingValue nv) {
+    final d = nv.text.replaceAll(RegExp(r'\D'), '');
+    final b = StringBuffer();
+    for (var i = 0; i < d.length && i < 14; i++) {
+      if (i == 2 || i == 5) b.write('.');
+      if (i == 8) b.write('/');
+      if (i == 12) b.write('-');
+      b.write(d[i]);
     }
-    final text = buf.toString();
-    return TextEditingValue(
-      text: text,
-      selection: TextSelection.collapsed(offset: text.length),
-    );
+    final t = b.toString();
+    return TextEditingValue(text: t, selection: TextSelection.collapsed(offset: t.length));
   }
 }
+
+class _TelefoneInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue old, TextEditingValue nv) {
+    final d = nv.text.replaceAll(RegExp(r'\D'), '');
+    final b = StringBuffer();
+    for (var i = 0; i < d.length && i < 11; i++) {
+      if (i == 0) b.write('(');
+      if (i == 2) b.write(') ');
+      if (d.length == 11 && i == 7) b.write('-');
+      if (d.length <= 10 && i == 6) b.write('-');
+      b.write(d[i]);
+    }
+    final t = b.toString();
+    return TextEditingValue(text: t, selection: TextSelection.collapsed(offset: t.length));
+  }
+}
+
 
 class CadastroScreen extends StatefulWidget {
   final TipoUsuario tipo;
@@ -54,18 +63,19 @@ class CadastroScreen extends StatefulWidget {
 }
 
 class _CadastroScreenState extends State<CadastroScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _nome = TextEditingController();
-  final _email = TextEditingController();
-  final _senha = TextEditingController();
-  final _confirmaSenha = TextEditingController();
-  final _orgao = TextEditingController();
-  final _cnpj = TextEditingController();
-  final _cpf = TextEditingController();
+  final _formKey         = GlobalKey<FormState>();
+  final _nome            = TextEditingController();
+  final _email           = TextEditingController();
+  final _senha           = TextEditingController();
+  final _confirmaSenha   = TextEditingController();
+  final _orgao           = TextEditingController();
+  final _cnpj            = TextEditingController();
+  final _cpf             = TextEditingController();
+  final _telefone        = TextEditingController();
 
-  bool _senhaVisivel = false;
+  bool _senhaVisivel         = false;
   bool _confirmaSenhaVisivel = false;
-  bool _carregando = false;
+  bool _carregando           = false;
 
   Color get _cor => widget.tipo == TipoUsuario.cidadao
       ? Colors.blue.shade700
@@ -82,6 +92,7 @@ class _CadastroScreenState extends State<CadastroScreen> {
     _orgao.dispose();
     _cnpj.dispose();
     _cpf.dispose();
+    _telefone.dispose();
     super.dispose();
   }
 
@@ -89,22 +100,19 @@ class _CadastroScreenState extends State<CadastroScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _carregando = true);
 
-    await Future.delayed(const Duration(milliseconds: 300));
+    final erro = await context.read<AuthService>().cadastrar(
+          nome:      _nome.text.trim(),
+          email:     _email.text.trim(),
+          senha:     _senha.text,
+          tipo:      widget.tipo,
+          orgaoNome: _isOrgao  ? _orgao.text.trim() : null,
+          cnpj:      _isOrgao  ? _cnpj.text.trim()  : null,
+          cpf:       !_isOrgao ? _cpf.text.trim()    : null,
+          telefone:  !_isOrgao ? _telefone.text.trim() : null, // ← NOVO
+        );
+
     if (!mounted) return;
-
-    final auth = context.read<AuthService>();
-    final erro = auth.cadastrar(
-      nome: _nome.text.trim(),
-      email: _email.text.trim(),
-      senha: _senha.text,
-      tipo: widget.tipo,
-      orgaoNome: _isOrgao ? _orgao.text.trim() : null,
-      cnpj: _isOrgao ? _cnpj.text.trim() : null,
-      cpf: !_isOrgao ? _cpf.text.trim() : null,
-    );
-
     setState(() => _carregando = false);
-    if (!mounted) return;
 
     if (erro != null) {
       ScaffoldMessenger.of(context)
@@ -159,7 +167,6 @@ class _CadastroScreenState extends State<CadastroScreen> {
                 ),
                 const SizedBox(height: 28),
 
-                // Nome completo
                 TextFormField(
                   controller: _nome,
                   textCapitalization: TextCapitalization.words,
@@ -173,7 +180,6 @@ class _CadastroScreenState extends State<CadastroScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // CPF — apenas para cidadão
                 if (!_isOrgao) ...[
                   TextFormField(
                     controller: _cpf,
@@ -186,15 +192,35 @@ class _CadastroScreenState extends State<CadastroScreen> {
                       border: OutlineInputBorder(),
                     ),
                     validator: (v) {
-                      final digits = (v ?? '').replaceAll(RegExp(r'\D'), '');
-                      if (digits.length != 11) return 'CPF inválido (11 dígitos)';
+                      final d = (v ?? '').replaceAll(RegExp(r'\D'), '');
+                      return d.length != 11 ? 'CPF inválido (11 dígitos)' : null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+
+                  TextFormField(
+                    controller: _telefone,
+                    keyboardType: TextInputType.phone,
+                    inputFormatters: [_TelefoneInputFormatter()],
+                    decoration: const InputDecoration(
+                      labelText: 'Telefone / WhatsApp *',
+                      hintText: '(00) 00000-0000',
+                      prefixIcon: Icon(Icons.phone_outlined),
+                      border: OutlineInputBorder(),
+                      helperText:
+                          'Usado para contato sobre suas denúncias',
+                    ),
+                    validator: (v) {
+                      final d = (v ?? '').replaceAll(RegExp(r'\D'), '');
+                      if (d.length < 10 || d.length > 11) {
+                        return 'Informe um telefone válido com DDD';
+                      }
                       return null;
                     },
                   ),
                   const SizedBox(height: 16),
                 ],
 
-                // Campos exclusivos para órgão
                 if (_isOrgao) ...[
                   TextFormField(
                     controller: _orgao,
@@ -209,7 +235,6 @@ class _CadastroScreenState extends State<CadastroScreen> {
                         : null,
                   ),
                   const SizedBox(height: 16),
-
                   TextFormField(
                     controller: _cnpj,
                     keyboardType: TextInputType.number,
@@ -221,16 +246,13 @@ class _CadastroScreenState extends State<CadastroScreen> {
                       border: OutlineInputBorder(),
                     ),
                     validator: (v) {
-                      final digits =
-                          (v ?? '').replaceAll(RegExp(r'\D'), '');
-                      if (digits.length != 14) return 'CNPJ inválido (14 dígitos)';
-                      return null;
+                      final d = (v ?? '').replaceAll(RegExp(r'\D'), '');
+                      return d.length != 14 ? 'CNPJ inválido (14 dígitos)' : null;
                     },
                   ),
                   const SizedBox(height: 16),
                 ],
 
-                // E-mail
                 TextFormField(
                   controller: _email,
                   keyboardType: TextInputType.emailAddress,
@@ -239,13 +261,13 @@ class _CadastroScreenState extends State<CadastroScreen> {
                     prefixIcon: Icon(Icons.email_outlined),
                     border: OutlineInputBorder(),
                   ),
-                  validator: (v) => (v == null || !v.contains('@'))
-                      ? 'E-mail inválido'
-                      : null,
+                  validator: (v) =>
+                      (v == null || !v.contains('@') || !v.contains('.'))
+                          ? 'E-mail inválido'
+                          : null,
                 ),
                 const SizedBox(height: 16),
 
-                // Senha
                 TextFormField(
                   controller: _senha,
                   obscureText: !_senhaVisivel,
@@ -267,7 +289,6 @@ class _CadastroScreenState extends State<CadastroScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // Confirmar senha
                 TextFormField(
                   controller: _confirmaSenha,
                   obscureText: !_confirmaSenhaVisivel,
