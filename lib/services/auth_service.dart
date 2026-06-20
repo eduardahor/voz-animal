@@ -129,8 +129,15 @@ class AuthService extends ChangeNotifier {
     }
 
     if (tipo == TipoUsuario.cidadao) {
+      // CPF é OPCIONAL para o cidadão (ver justificativa LGPD/jurídica:
+      // a denúncia em si não exige identificação unívoca; CPF só passa
+      // a ter utilidade se o órgão precisar converter em procedimento
+      // formal, caso em que o próprio órgão pode solicitar depois).
+      // Quando informado, ainda assim precisa ter formato válido.
       final cpfLimpo = (cpf ?? '').replaceAll(RegExp(r'\D'), '');
-      if (cpfLimpo.length != 11) return 'CPF inválido (11 dígitos).';
+      if (cpfLimpo.isNotEmpty && cpfLimpo.length != 11) {
+        return 'CPF inválido (11 dígitos) — ou deixe em branco.';
+      }
 
       final foneLimpo = (telefone ?? '').replaceAll(RegExp(r'\D'), '');
       if (foneLimpo.length < 10 || foneLimpo.length > 11) {
@@ -149,7 +156,9 @@ class AuthService extends ChangeNotifier {
       if (emailSnap.docs.isNotEmpty) return 'Já existe uma conta com este e-mail.';
 
       // Verifica CPF duplicado
-      if (tipo == TipoUsuario.cidadao && cpf != null) {
+      if (tipo == TipoUsuario.cidadao &&
+          cpf != null &&
+          cpf.replaceAll(RegExp(r'\D'), '').isNotEmpty) {
         final cpfLimpo = cpf.replaceAll(RegExp(r'\D'), '');
         final cpfSnap  = await _db
             .collection('usuarios')
@@ -175,6 +184,7 @@ class AuthService extends ChangeNotifier {
       // Salva no Firestore
       final ref = _db.collection('usuarios').doc();
       final foneLimpo = (telefone ?? '').replaceAll(RegExp(r'\D'), '');
+      final cpfLimpoFinal = (cpf ?? '').replaceAll(RegExp(r'\D'), '');
 
       await ref.set({
         'nome':      tipo == TipoUsuario.orgao ? (orgaoNome ?? nome) : nome,
@@ -184,8 +194,8 @@ class AuthService extends ChangeNotifier {
         if (tipo == TipoUsuario.orgao) 'orgaoNome': orgaoNome?.trim(),
         if (tipo == TipoUsuario.orgao && cnpj != null)
           'cnpj': cnpj.replaceAll(RegExp(r'\D'), ''),
-        if (tipo == TipoUsuario.cidadao && cpf != null)
-          'cpf': cpf.replaceAll(RegExp(r'\D'), ''),
+        if (tipo == TipoUsuario.cidadao && cpfLimpoFinal.isNotEmpty)
+          'cpf': cpfLimpoFinal,
         if (tipo == TipoUsuario.cidadao && foneLimpo.isNotEmpty)
           'telefone': foneLimpo,
         'criadoEm': FieldValue.serverTimestamp(),
@@ -198,7 +208,7 @@ class AuthService extends ChangeNotifier {
         senha:     senha,
         tipo:      tipo,
         cnpj:      tipo == TipoUsuario.orgao ? cnpj?.replaceAll(RegExp(r'\D'), '') : null,
-        cpf:       tipo == TipoUsuario.cidadao ? cpf?.replaceAll(RegExp(r'\D'), '') : null,
+        cpf:       tipo == TipoUsuario.cidadao && cpfLimpoFinal.isNotEmpty ? cpfLimpoFinal : null,
         telefone:  tipo == TipoUsuario.cidadao ? foneLimpo : null,
       );
 

@@ -98,6 +98,10 @@ class _NovaDenunciaScreenState extends State<NovaDenunciaScreen> {
             tipo:        _tipo!,
             localizacao: _localizacao!,
             fotoUrl:     _fotoUrl,
+            denuncianteNome:     usuario.nome,
+            denuncianteTelefone: usuario.telefone,
+            denuncianteEmail:    usuario.email,
+            denuncianteCpf:      usuario.cpf,
           );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -207,7 +211,8 @@ class _NovaDenunciaScreenState extends State<NovaDenunciaScreen> {
                 maxLines: 5,
                 decoration: const InputDecoration(
                   border: OutlineInputBorder(),
-                  hintText: 'Descreva o que aconteceu, se útil, um ponto de referência do local.',
+                  hintText: 'Descreva o que aconteceu e, se útil, um ponto '
+                      'de referência do local (mín. 20 caracteres)',
                 ),
                 validator: (v) => (v == null || v.trim().length < 20)
                     ? 'Mínimo de 20 caracteres'

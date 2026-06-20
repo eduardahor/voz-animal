@@ -57,6 +57,10 @@ class DenunciaRepository {
     required TipoOcorrencia tipo,
     required Localizacao localizacao,
     String? fotoUrl,
+    String? denuncianteNome,
+    String? denuncianteTelefone,
+    String? denuncianteEmail,
+    String? denuncianteCpf,
   }) async {
     if (descricao.trim().length < 20) {
       throw ArgumentError('Descrição precisa ter ao menos 20 caracteres.');
@@ -82,6 +86,10 @@ class DenunciaRepository {
       'acceptedAt':          null,
       'devolvidaAt':         null,
       'bloqueadosAte':       <String, dynamic>{},
+      if (denuncianteNome != null) 'denuncianteNome': denuncianteNome,
+      if (denuncianteTelefone != null) 'denuncianteTelefone': denuncianteTelefone,
+      if (denuncianteEmail != null) 'denuncianteEmail': denuncianteEmail,
+      if (denuncianteCpf != null) 'denuncianteCpf': denuncianteCpf,
       'criadoEm':            FieldValue.serverTimestamp(),
       'atualizadoEm':        FieldValue.serverTimestamp(),
     });
@@ -95,6 +103,23 @@ class DenunciaRepository {
     return ref.id;
   }
 
+
+  Future<void> registrarVisualizacaoDadosDenunciante({
+    required String denunciaId,
+    required String orgaoId,
+    required String orgaoNome,
+  }) async {
+    try {
+      await _historico(denunciaId).add({
+        'acao':      'dados_denunciante_visualizados',
+        'orgaoId':   orgaoId,
+        'orgaoNome': orgaoNome,
+        'ocorridoEm': FieldValue.serverTimestamp(),
+      });
+    } catch (_) {
+
+    }
+  }
 
   Future<void> assumir({
     required String denunciaId,

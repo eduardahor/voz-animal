@@ -21,7 +21,7 @@ final class ClaimFailure extends ClaimResult {
   const ClaimFailure(this.mensagem, {this.bloqueado = false});
 }
 
-/// Service de denúncias: orquestra Repository e expõe Streams para a UI.
+
 class DenunciaService extends ChangeNotifier {
   DenunciaService({DenunciaRepository? repo})
       : _repo = repo ?? DenunciaRepository();
@@ -46,6 +46,10 @@ class DenunciaService extends ChangeNotifier {
     required TipoOcorrencia tipo,
     required Localizacao localizacao,
     String? fotoUrl,
+    String? denuncianteNome,
+    String? denuncianteTelefone,
+    String? denuncianteEmail,
+    String? denuncianteCpf,
   }) async {
     try {
       return await _repo.criar(
@@ -54,11 +58,28 @@ class DenunciaService extends ChangeNotifier {
         tipo: tipo,
         localizacao: localizacao,
         fotoUrl: fotoUrl,
+        denuncianteNome: denuncianteNome,
+        denuncianteTelefone: denuncianteTelefone,
+        denuncianteEmail: denuncianteEmail,
+        denuncianteCpf: denuncianteCpf,
       );
     } catch (e) {
       debugPrint('[DenunciaService.criar] $e');
       rethrow;
     }
+  }
+
+
+  Future<void> registrarVisualizacaoDadosDenunciante({
+    required String denunciaId,
+    required String orgaoId,
+    required String orgaoNome,
+  }) {
+    return _repo.registrarVisualizacaoDadosDenunciante(
+      denunciaId: denunciaId,
+      orgaoId: orgaoId,
+      orgaoNome: orgaoNome,
+    );
   }
 
 

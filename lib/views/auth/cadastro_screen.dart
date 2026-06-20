@@ -186,13 +186,17 @@ class _CadastroScreenState extends State<CadastroScreen> {
                     keyboardType: TextInputType.number,
                     inputFormatters: [_CpfInputFormatter()],
                     decoration: const InputDecoration(
-                      labelText: 'CPF',
+                      labelText: 'CPF (opcional)',
                       hintText: '000.000.000-00',
+                      helperText: 'Informe se desejar que sua denúncia possa '
+                          'ser convertida em procedimento formal pelo órgão',
+                      helperMaxLines: 2,
                       prefixIcon: Icon(Icons.badge_outlined),
                       border: OutlineInputBorder(),
                     ),
                     validator: (v) {
                       final d = (v ?? '').replaceAll(RegExp(r'\D'), '');
+                      if (d.isEmpty) return null; // opcional
                       return d.length != 11 ? 'CPF inválido (11 dígitos)' : null;
                     },
                   ),
