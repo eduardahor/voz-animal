@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../models/tipo_usuario.dart';
 import '../../services/auth_service.dart';
+import '../shared/font_size_controls.dart';
 
 
 class _CpfInputFormatter extends TextInputFormatter {
@@ -135,6 +136,7 @@ class _CadastroScreenState extends State<CadastroScreen> {
         title: Text(_isOrgao ? 'Cadastro do Órgão' : 'Cadastro do Cidadão'),
         backgroundColor: _cor,
         foregroundColor: Colors.white,
+        actions: const [FontSizeControls()],
       ),
       body: SafeArea(
         child: SingleChildScrollView(

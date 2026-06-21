@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 import '../../models/localizacao.dart';
 import '../../services/localizacao_service.dart';
+import '../shared/font_size_controls.dart';
 
 
 class _CepInputFormatter extends TextInputFormatter {
@@ -214,6 +215,7 @@ class _SelecionarLocalizacaoScreenState
         title: const Text('Localização da ocorrência'),
         backgroundColor: Colors.blue.shade700,
         foregroundColor: Colors.white,
+        actions: const [FontSizeControls()],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
