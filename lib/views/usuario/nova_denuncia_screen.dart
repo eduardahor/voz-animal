@@ -6,6 +6,7 @@ import '../../services/auth_service.dart';
 import '../../services/denuncia_service.dart';
 import '../../services/foto_service.dart';
 import '../foto_denuncia.dart';
+import '../shared/font_size_controls.dart';
 import 'selecionar_localizacao_screen.dart';
 
 class NovaDenunciaScreen extends StatefulWidget {
@@ -125,6 +126,7 @@ class _NovaDenunciaScreenState extends State<NovaDenunciaScreen> {
         title: const Text('Nova Denúncia'),
         backgroundColor: Colors.red.shade700,
         foregroundColor: Colors.white,
+        actions: const [FontSizeControls()],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),

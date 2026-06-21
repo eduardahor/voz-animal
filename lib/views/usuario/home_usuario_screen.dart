@@ -5,6 +5,7 @@ import '../../models/status_denuncia.dart';
 import '../../services/auth_service.dart';
 import '../../services/denuncia_service.dart';
 import '../auth/escolha_perfil_screen.dart';
+import '../shared/font_size_controls.dart';
 import 'minhas_denuncias_screen.dart';
 import 'nova_denuncia_screen.dart';
 import 'perfil_screen.dart';
@@ -24,6 +25,7 @@ class HomeUsuarioScreen extends StatelessWidget {
         backgroundColor: Colors.blue.shade700,
         foregroundColor: Colors.white,
         actions: [
+          const FontSizeControls(),
           IconButton(
             icon: const Icon(Icons.account_circle_outlined),
             tooltip: 'Meu Perfil',
