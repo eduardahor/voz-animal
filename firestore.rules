@@ -110,4 +110,16 @@ service cloud.firestore {
       return isAssumir || isAlterarStatus || isDevolver;
     }
   }
+
+  match /cpfs_em_uso/{cpf} {
+    allow get: if true;
+    allow list: if false;
+    allow create, update, delete: if autenticado();
+  }
+
+  match /cnpjs_em_uso/{cnpj} {
+    allow get: if true;
+    allow list: if false;
+    allow create, update, delete: if autenticado();
+  }
 }

@@ -107,22 +107,14 @@ class _PerfilScreenState extends State<PerfilScreen> {
     final auth    = context.read<AuthService>();
     final usuario = auth.usuarioAtual!;
 
-    // Valida senha atual antes de prosseguir
-    if (_alterarSenha && _senhaAtual.text != usuario.senha) {
-      setState(() => _carregando = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Senha atual incorreta.')),
-      );
-      return;
-    }
-
     final erro = await auth.atualizarPerfil(
-      nome:      _nome.text.trim(),
-      email:     _email.text.trim(),
-      telefone:  usuario.tipo == TipoUsuario.cidadao ? _telefone.text.trim() : null,
-      cpf:       usuario.tipo == TipoUsuario.cidadao ? _cpf.text.trim()   : null,
-      cnpj:      usuario.tipo == TipoUsuario.orgao   ? _cnpj.text.trim()  : null,
-      novaSenha: _alterarSenha && _novaSenha.text.isNotEmpty ? _novaSenha.text : null,
+      nome:       _nome.text.trim(),
+      email:      _email.text.trim(),
+      telefone:   usuario.tipo == TipoUsuario.cidadao ? _telefone.text.trim() : null,
+      cpf:        usuario.tipo == TipoUsuario.cidadao ? _cpf.text.trim()   : null,
+      cnpj:       usuario.tipo == TipoUsuario.orgao   ? _cnpj.text.trim()  : null,
+      senhaAtual: _alterarSenha ? _senhaAtual.text : null,
+      novaSenha:  _alterarSenha && _novaSenha.text.isNotEmpty ? _novaSenha.text : null,
     );
 
     if (!mounted) return;
@@ -158,7 +150,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
             onPressed: () => Navigator.pop(contextDialog),
             child: const Text('Cancelar'),
           ),
-          TextButton( // Botão sem borda, apenas texto
+          TextButton(
             onPressed: () async {
               Navigator.pop(contextDialog);
               setState(() => _carregando = true);
