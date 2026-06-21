@@ -161,7 +161,7 @@ class AuthService extends ChangeNotifier {
     }
 
     try {
-      // Verifica e-mail duplicado
+      // Verifica e-mail duplicado no Firestore
       final emailSnap = await _db
           .collection('usuarios')
           .where('email', isEqualTo: email.toLowerCase().trim())
@@ -196,6 +196,7 @@ class AuthService extends ChangeNotifier {
         if (cnpjSnap.docs.isNotEmpty) return 'Já existe uma conta com este CNPJ.';
       }
 
+      // 1. Cria a conta oficial na Autenticação do Firebase
       final credenciais = await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: email.toLowerCase().trim(),
         password: senha,
@@ -204,6 +205,7 @@ class AuthService extends ChangeNotifier {
       final userAuth = credenciais.user;
       if (userAuth == null) return 'Erro ao criar credenciais de autenticação.';
 
+      // 2. Salva no Firestore usando o UID da Autenticação como ID do documento
       final ref = _db.collection('usuarios').doc(userAuth.uid);
       final foneLimpo = (telefone ?? '').replaceAll(RegExp(r'\D'), '');
       final cpfLimpoFinal = (cpf ?? '').replaceAll(RegExp(r'\D'), '');
@@ -236,7 +238,7 @@ class AuthService extends ChangeNotifier {
 
       await _salvarSessao(_usuarioAtual!);
       notifyListeners();
-      return null;
+      return null; // sucesso
     } on FirebaseAuthException catch (e) {
       if (e.code == 'email-already-in-use') return 'Este e-mail já está em uso na autenticação.';
       if (e.code == 'weak-password') return 'A senha informada é muito fraca.';
@@ -291,6 +293,7 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+
   Future<void> logout() async {
     await FirebaseAuth.instance.signOut();
     await _limparSessao();
@@ -315,7 +318,7 @@ class AuthService extends ChangeNotifier {
       _usuarioAtual = null;
       notifyListeners();
 
-      return null;
+      return null; // sucesso
     } on FirebaseAuthException catch (e) {
       if (e.code == 'requires-recent-login') {
         return 'Por segurança, faça Logout, realize o login novamente e tente excluir a conta em seguida.';
