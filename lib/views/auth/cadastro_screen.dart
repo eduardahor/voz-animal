@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../models/tipo_usuario.dart';
 import '../../services/auth_service.dart';
 import '../router_screen.dart';
+import '../shared/font_size_controls.dart';
 
 
 class _CpfInputFormatter extends TextInputFormatter {
@@ -109,7 +110,7 @@ class _CadastroScreenState extends State<CadastroScreen> {
       orgaoNome: _isOrgao  ? _orgao.text.trim() : null,
       cnpj:      _isOrgao  ? _cnpj.text.trim()  : null,
       cpf:       !_isOrgao ? _cpf.text.trim()    : null,
-      telefone:  !_isOrgao ? _telefone.text.trim() : null, // ← NOVO
+      telefone:  !_isOrgao ? _telefone.text.trim() : null,
     );
 
     if (!mounted) return;
@@ -125,7 +126,6 @@ class _CadastroScreenState extends State<CadastroScreen> {
           backgroundColor: Colors.green,
         ),
       );
-      // Aqui está a mudança: envia o usuário diretamente para o RouterScreen
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (_) => const RouterScreen()),
@@ -141,6 +141,7 @@ class _CadastroScreenState extends State<CadastroScreen> {
         title: Text(_isOrgao ? 'Cadastro do Órgão' : 'Cadastro do Cidadão'),
         backgroundColor: _cor,
         foregroundColor: Colors.white,
+        actions: const [FontSizeControls()],
       ),
       body: SafeArea(
         child: SingleChildScrollView(

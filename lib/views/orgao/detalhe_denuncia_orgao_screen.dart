@@ -10,6 +10,7 @@ import '../../models/tipo_ocorrencia.dart';
 import '../../services/denuncia_service.dart';
 import '../foto_denuncia.dart';
 import '../shared/badges.dart';
+import '../shared/font_size_controls.dart';
 
 class DetalheDenunciaOrgaoScreen extends StatefulWidget {
   final Denuncia denuncia;
@@ -61,6 +62,7 @@ class _DetalheDenunciaOrgaoScreenState
         title: const Text('Denúncia'),
         backgroundColor: Colors.green.shade700,
         foregroundColor: Colors.white,
+        actions: const [FontSizeControls()],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),

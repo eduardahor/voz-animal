@@ -6,6 +6,7 @@ import '../../models/tipo_ocorrencia.dart';
 import '../../services/auth_service.dart';
 import '../../services/denuncia_service.dart';
 import '../foto_denuncia.dart';
+import '../shared/font_size_controls.dart';
 import 'detalhe_denuncia_usuario_screen.dart';
 import 'nova_denuncia_screen.dart';
 
@@ -30,6 +31,7 @@ class _MinhasDenunciasScreenState extends State<MinhasDenunciasScreen> {
         title: const Text('Minhas Denúncias'),
         backgroundColor: Colors.blue.shade700,
         foregroundColor: Colors.white,
+        actions: const [FontSizeControls()],
       ),
       body: StreamBuilder<List<Denuncia>>(
         stream: svc.doCidadao(usuario.id),

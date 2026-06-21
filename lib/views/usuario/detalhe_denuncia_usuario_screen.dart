@@ -5,6 +5,7 @@ import '../../models/localizacao.dart';
 import '../../models/tipo_ocorrencia.dart';
 import '../foto_denuncia.dart';
 import '../shared/badges.dart';
+import '../shared/font_size_controls.dart';
 
 class DetalheDenunciaUsuarioScreen extends StatelessWidget {
   final Denuncia denuncia;
@@ -21,6 +22,7 @@ class DetalheDenunciaUsuarioScreen extends StatelessWidget {
         title: const Text('Minha Denúncia'),
         backgroundColor: Colors.blue.shade700,
         foregroundColor: Colors.white,
+        actions: const [FontSizeControls()],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
