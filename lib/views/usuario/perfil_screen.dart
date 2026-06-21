@@ -452,7 +452,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
                     style: TextStyle(
                       color: Colors.red.shade700,
                       fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                      fontSize: 12,
                     ),
                   ),
                 ),
