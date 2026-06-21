@@ -47,7 +47,6 @@ class _SelecionarLocalizacaoScreenState
   late final TextEditingController _bairro;
   late final TextEditingController _cidade;
   final _numeroFocus = FocusNode();
-  final _ruaFocus = FocusNode();
   String _uf = 'SP';
 
   bool _buscandoGps = false;
@@ -76,10 +75,6 @@ class _SelecionarLocalizacaoScreenState
       _precisaoGps = ini.precisaoMetros;
     }
     _cep.addListener(_onCepChanged);
-
-    _ruaFocus.addListener(() {
-      setState(() {});
-    });
   }
 
   @override
@@ -92,7 +87,6 @@ class _SelecionarLocalizacaoScreenState
     _bairro.dispose();
     _cidade.dispose();
     _numeroFocus.dispose();
-    _ruaFocus.dispose();
     super.dispose();
   }
 
@@ -278,15 +272,10 @@ class _SelecionarLocalizacaoScreenState
                       flex: 3,
                       child: TextFormField(
                         controller: _rua,
-                        focusNode: _ruaFocus,
                         textCapitalization: TextCapitalization.words,
-                        decoration: InputDecoration(
+                        decoration: const InputDecoration(
                           labelText: 'Rua / Avenida *',
                           border: OutlineInputBorder(),
-                          helperText: _ruaFocus.hasFocus
-                            ? 'Sem número? Adicione um ponto de referência na descrição.'
-                            : null,
-                          helperMaxLines: 3,
                         ),
                         validator: (v) => (v == null || v.trim().length < 3)
                             ? 'Informe a rua'
