@@ -22,7 +22,4 @@ jobs:
       - name: Deploy rules and functions
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
-        run: |
-          firebase deploy \
-            --only firestore \
-            --non-interactive
+        run: firebase deploy --only firestore --non-interactive
