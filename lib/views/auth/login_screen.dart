@@ -74,11 +74,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
     final msg = switch (resultado) {
       LoginResultado.usuarioNaoEncontrado =>
-          'Nenhuma conta encontrada com este e-mail.',
+      'E-mail ou senha incorretos.',
       LoginResultado.senhaIncorreta =>
-          'Senha incorreta. Verifique e tente novamente.',
+      'E-mail ou senha incorretos.',
       LoginResultado.cnpjIncorreto =>
-          'CNPJ não corresponde ao cadastro deste e-mail.',
+      'CNPJ não corresponde ao cadastro deste e-mail.',
       _ => 'Erro ao fazer login. Tente novamente.',
     };
 

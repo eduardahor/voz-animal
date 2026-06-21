@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../models/tipo_usuario.dart';
 import '../../services/auth_service.dart';
+import '../router_screen.dart';
 
 
 class _CpfInputFormatter extends TextInputFormatter {
@@ -101,15 +102,15 @@ class _CadastroScreenState extends State<CadastroScreen> {
     setState(() => _carregando = true);
 
     final erro = await context.read<AuthService>().cadastrar(
-          nome:      _nome.text.trim(),
-          email:     _email.text.trim(),
-          senha:     _senha.text,
-          tipo:      widget.tipo,
-          orgaoNome: _isOrgao  ? _orgao.text.trim() : null,
-          cnpj:      _isOrgao  ? _cnpj.text.trim()  : null,
-          cpf:       !_isOrgao ? _cpf.text.trim()    : null,
-          telefone:  !_isOrgao ? _telefone.text.trim() : null, // ← NOVO
-        );
+      nome:      _nome.text.trim(),
+      email:     _email.text.trim(),
+      senha:     _senha.text,
+      tipo:      widget.tipo,
+      orgaoNome: _isOrgao  ? _orgao.text.trim() : null,
+      cnpj:      _isOrgao  ? _cnpj.text.trim()  : null,
+      cpf:       !_isOrgao ? _cpf.text.trim()    : null,
+      telefone:  !_isOrgao ? _telefone.text.trim() : null, // ← NOVO
+    );
 
     if (!mounted) return;
     setState(() => _carregando = false);
@@ -124,7 +125,12 @@ class _CadastroScreenState extends State<CadastroScreen> {
           backgroundColor: Colors.green,
         ),
       );
-      Navigator.popUntil(context, (r) => r.isFirst);
+      // Aqui está a mudança: envia o usuário diretamente para o RouterScreen
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const RouterScreen()),
+            (_) => false,
+      );
     }
   }
 
