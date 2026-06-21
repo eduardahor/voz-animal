@@ -315,6 +315,7 @@ class AuthService extends ChangeNotifier {
       _usuarioAtual = null;
       notifyListeners();
 
+      return null;
     } on FirebaseAuthException catch (e) {
       if (e.code == 'requires-recent-login') {
         return 'Por segurança, faça Logout, realize o login novamente e tente excluir a conta em seguida.';
