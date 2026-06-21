@@ -166,6 +166,29 @@ class AuthService extends ChangeNotifier {
 
     try {
 
+      // Verifica e-mail duplicado
+      final emailSnap = await _db
+          .collection('usuarios')
+          .where('email', isEqualTo: email.toLowerCase().trim())
+          .where('tipo', isEqualTo: tipo.name)
+          .limit(1)
+          .get();
+      if (emailSnap.docs.isNotEmpty) return 'Já existe uma conta com este e-mail.';
+
+      // Verifica CPF duplicado
+      if (tipo == TipoUsuario.cidadao &&
+          cpf != null &&
+          cpf.replaceAll(RegExp(r'\D'), '').isNotEmpty) {
+        final cpfLimpo = cpf.replaceAll(RegExp(r'\D'), '');
+        final cpfSnap  = await _db
+            .collection('usuarios')
+            .where('tipo', isEqualTo: tipo.name)
+            .where('cpf', isEqualTo: cpfLimpo)
+            .limit(1)
+            .get();
+        if (cpfSnap.docs.isNotEmpty) return 'Já existe uma conta com este CPF.';
+      }
+
       if (tipo == TipoUsuario.cidadao && cpfLimpoFinal.isNotEmpty) {
         final jaExiste = await _db.collection(_kColecaoCpfs).doc(cpfLimpoFinal).get();
         if (jaExiste.exists) return 'Já existe uma conta com este CPF.';
@@ -176,6 +199,8 @@ class AuthService extends ChangeNotifier {
       }
 
       final credenciais = await _auth.createUserWithEmailAndPassword(
+
+      final credenciais = await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: email.toLowerCase().trim(),
         password: senha,
       );
@@ -223,7 +248,7 @@ class AuthService extends ChangeNotifier {
       );
 
       notifyListeners();
-      return null; // sucesso
+      return null;
     } on FirebaseAuthException catch (e) {
       if (e.code == 'email-already-in-use') return 'Já existe uma conta com este e-mail.';
       if (e.code == 'weak-password') return 'A senha informada é muito fraca.';
@@ -342,7 +367,13 @@ class AuthService extends ChangeNotifier {
       }
 
       await userAuth.delete();
-      return null; // sucesso
+      return null;// sucesso
+      
+      await _limparSessao();
+      _usuarioAtual = null;
+      notifyListeners();
+
+      return null;
     } on FirebaseAuthException catch (e) {
       if (e.code == 'requires-recent-login') {
         return 'Por segurança, faça Logout, realize o login novamente e tente excluir a conta em seguida.';
