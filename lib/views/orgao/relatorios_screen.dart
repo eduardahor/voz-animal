@@ -8,6 +8,7 @@ import '../../models/tipo_ocorrencia.dart';
 import '../../services/auth_service.dart';
 import '../../services/denuncia_service.dart';
 import '../../services/relatorio_service.dart';
+import '../shared/font_size_controls.dart';
 
 class RelatoriosScreen extends StatelessWidget {
   const RelatoriosScreen({super.key});
@@ -22,6 +23,7 @@ class RelatoriosScreen extends StatelessWidget {
         title: const Text('Relatórios'),
         backgroundColor: Colors.green.shade700,
         foregroundColor: Colors.white,
+        actions: const [FontSizeControls()],
       ),
       body: StreamBuilder<List<Denuncia>>(
         stream: svc.doOrgao(orgaoId),
