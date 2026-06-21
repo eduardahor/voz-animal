@@ -311,9 +311,10 @@ class _SelecionarLocalizacaoScreenState
                 const SizedBox(height: 12),
 
                 // Cidade + UF
+                // Cidade + UF
                 Row(children: [
                   Expanded(
-                    flex: 3,
+                    flex: 5, // Aumentei um pouquinho a proporção para 5:2 para ficar mais seguro
                     child: TextFormField(
                       controller: _cidade,
                       textCapitalization: TextCapitalization.words,
@@ -328,19 +329,20 @@ class _SelecionarLocalizacaoScreenState
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    flex: 1,
+                    flex: 2, // Dei um pixel a mais de respiro para a UF
                     child: DropdownButtonFormField<String>(
+                      isExpanded: true, // <-- A MÁGICA QUE TIRA A LINHA VERMELHA FICA AQUI
                       initialValue: _uf,
                       onChanged: (v) => setState(() => _uf = v ?? 'SP'),
                       decoration: const InputDecoration(
                         labelText: 'UF',
                         border: OutlineInputBorder(),
                         contentPadding: EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 14),
+                            horizontal: 8, vertical: 14), // Diminuí 2px do padding
                       ),
                       items: ufsBrasil
                           .map((u) =>
-                              DropdownMenuItem(value: u, child: Text(u)))
+                          DropdownMenuItem(value: u, child: Text(u)))
                           .toList(),
                     ),
                   ),

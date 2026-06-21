@@ -31,12 +31,13 @@ class FontSizeControls extends StatelessWidget {
             cor: corBase,
             onPressed: fontScale.podeDiminuir
                 ? () {
-                    fontScale.diminuir();
-                    SemanticsService.announce(
-                      'Fonte diminuída',
-                      Directionality.of(context),
-                    );
-                  }
+              fontScale.diminuir();
+              SemanticsService.sendAnnouncement(
+                View.of(context),
+                'Fonte diminuída',
+                Directionality.of(context),
+              );
+            }
                 : null,
           ),
           _BotaoFonte(
@@ -45,12 +46,13 @@ class FontSizeControls extends StatelessWidget {
             cor: corBase,
             onPressed: fontScale.podeAumentar
                 ? () {
-                    fontScale.aumentar();
-                    SemanticsService.announce(
-                      'Fonte aumentada',
-                      Directionality.of(context),
-                    );
-                  }
+              fontScale.aumentar();
+              SemanticsService.sendAnnouncement(
+                View.of(context),
+                'Fonte aumentada',
+                Directionality.of(context),
+              );
+            }
                 : null,
           ),
         ],

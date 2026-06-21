@@ -144,6 +144,49 @@ class _PerfilScreenState extends State<PerfilScreen> {
     Navigator.pop(context);
   }
 
+  void _confirmarExclusaoDeConta(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (contextDialog) => AlertDialog(
+        title: const Text('Excluir Conta', style: TextStyle(color: Colors.red)),
+        content: const Text(
+          'Tem certeza que deseja excluir sua conta permanentemente? \n\n'
+              'Esta ação não pode ser desfeita e todos os seus dados serão apagados.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(contextDialog),
+            child: const Text('Cancelar'),
+          ),
+          TextButton( // Botão sem borda, apenas texto
+            onPressed: () async {
+              Navigator.pop(contextDialog);
+              setState(() => _carregando = true);
+
+              final erro = await context.read<AuthService>().deletarConta();
+
+              if (!context.mounted) return;
+              setState(() => _carregando = false);
+
+              if (erro != null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(erro), backgroundColor: Colors.red.shade700, duration: const Duration(seconds: 6)),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Sua conta foi excluída com sucesso.'), backgroundColor: Colors.green),
+                );
+                // A tela de login será chamada automaticamente pelo RouterScreen devido ao notifyListeners()
+                Navigator.pop(context);
+              }
+            },
+            child: const Text('Excluir Tudo', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final usuario = context.watch<AuthService>().usuarioAtual!;
@@ -397,6 +440,22 @@ class _PerfilScreenState extends State<PerfilScreen> {
                             'SALVAR ALTERAÇÕES',
                             style: TextStyle(fontWeight: FontWeight.bold),
                           ),
+                  ),
+                ),
+                const SizedBox(height: 32),
+
+                _SectionHeader(titulo: 'Zona de Perigo', cor: Colors.red.shade700),
+                const SizedBox(height: 12),
+
+                TextButton(
+                  onPressed: _carregando ? null : () => _confirmarExclusaoDeConta(context),
+                  child: Text(
+                    'Excluir Minha Conta',
+                    style: TextStyle(
+                      color: Colors.red.shade700,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
                   ),
                 ),
               ],
