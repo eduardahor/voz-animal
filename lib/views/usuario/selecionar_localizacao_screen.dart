@@ -47,6 +47,7 @@ class _SelecionarLocalizacaoScreenState
   late final TextEditingController _bairro;
   late final TextEditingController _cidade;
   final _numeroFocus = FocusNode();
+  final _ruaFocus = FocusNode();
   String _uf = 'SP';
 
   bool _buscandoGps = false;
@@ -75,6 +76,10 @@ class _SelecionarLocalizacaoScreenState
       _precisaoGps = ini.precisaoMetros;
     }
     _cep.addListener(_onCepChanged);
+
+    _ruaFocus.addListener(() {
+      setState(() {});
+    });
   }
 
   @override
@@ -87,6 +92,7 @@ class _SelecionarLocalizacaoScreenState
     _bairro.dispose();
     _cidade.dispose();
     _numeroFocus.dispose();
+    _ruaFocus.dispose();
     super.dispose();
   }
 
@@ -272,10 +278,15 @@ class _SelecionarLocalizacaoScreenState
                       flex: 3,
                       child: TextFormField(
                         controller: _rua,
+                        focusNode: _ruaFocus,
                         textCapitalization: TextCapitalization.words,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: 'Rua / Avenida *',
                           border: OutlineInputBorder(),
+                          helperText: _ruaFocus.hasFocus
+                            ? 'Sem número? Adicione um ponto de referência na descrição.'
+                            : null,
+                          helperMaxLines: 3,
                         ),
                         validator: (v) => (v == null || v.trim().length < 3)
                             ? 'Informe a rua'
@@ -311,10 +322,9 @@ class _SelecionarLocalizacaoScreenState
                 const SizedBox(height: 12),
 
                 // Cidade + UF
-                // Cidade + UF
                 Row(children: [
                   Expanded(
-                    flex: 5, // Aumentei um pouquinho a proporção para 5:2 para ficar mais seguro
+                    flex: 5,
                     child: TextFormField(
                       controller: _cidade,
                       textCapitalization: TextCapitalization.words,
@@ -329,16 +339,16 @@ class _SelecionarLocalizacaoScreenState
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    flex: 2, // Dei um pixel a mais de respiro para a UF
+                    flex: 2,
                     child: DropdownButtonFormField<String>(
-                      isExpanded: true, // <-- A MÁGICA QUE TIRA A LINHA VERMELHA FICA AQUI
+                      isExpanded: true,
                       initialValue: _uf,
                       onChanged: (v) => setState(() => _uf = v ?? 'SP'),
                       decoration: const InputDecoration(
                         labelText: 'UF',
                         border: OutlineInputBorder(),
                         contentPadding: EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 14), // Diminuí 2px do padding
+                            horizontal: 8, vertical: 14),
                       ),
                       items: ufsBrasil
                           .map((u) =>
