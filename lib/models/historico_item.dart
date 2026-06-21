@@ -59,6 +59,8 @@ class HistoricoItem {
         return 'Status: $statusAnterior → $statusNovo';
       case 'criado':
         return 'Denúncia registrada pelo cidadão';
+      case 'dados_denunciante_visualizados':
+        return '${orgaoNome ?? orgaoId} visualizou os dados de contato do denunciante';
       default:
         return acao;
     }

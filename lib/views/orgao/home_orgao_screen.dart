@@ -6,6 +6,7 @@ import '../../services/auth_service.dart';
 import '../../services/denuncia_service.dart';
 import '../foto_denuncia.dart';
 import '../shared/badges.dart';
+import '../shared/font_size_controls.dart';
 import '../usuario/perfil_screen.dart';
 import 'detalhe_denuncia_orgao_screen.dart';
 import 'relatorios_screen.dart';
@@ -49,6 +50,7 @@ class _HomeOrgaoScreenState extends State<HomeOrgaoScreen>
         backgroundColor: Colors.green.shade700,
         foregroundColor: Colors.white,
         actions: [
+          const FontSizeControls(),
           IconButton(
             tooltip: 'Relatórios',
             icon: const Icon(Icons.assessment),

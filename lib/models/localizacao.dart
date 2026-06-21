@@ -40,6 +40,7 @@ class Localizacao {
     return partes.join(' — ');
   }
 
+  /// Localização veio do GPS.
   bool get temGps => latitude != null && longitude != null;
 
   /// Precisão do GPS como texto legível.
@@ -68,6 +69,7 @@ class Localizacao {
   /// (rua OU GPS) + cidade + estado.
   bool valido() {
     if (temGps) {
+      // GPS já garante a localização exata; texto é só complemento.
       return true;
     }
 
@@ -92,6 +94,8 @@ class Localizacao {
   @override
   String toString() => resumo();
 
+  // ── Serialização ──────────────────────────────────────────────
+
   Map<String, dynamic> toMap() => {
     'rua': rua,
     'numero': numero,
@@ -105,7 +109,7 @@ class Localizacao {
   };
 
   factory Localizacao.fromMap(Map<String, dynamic> m) => Localizacao(
-    rua: (m['rua'] ?? m['endereco'] ?? '') as String,
+    rua: (m['rua'] ?? m['endereco'] ?? '') as String, // compat com dados antigos
     numero: (m['numero'] ?? '') as String,
     bairro: (m['bairro'] ?? '') as String,
     cidade: m['cidade'] as String,

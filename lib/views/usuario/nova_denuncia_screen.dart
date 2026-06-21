@@ -6,6 +6,7 @@ import '../../services/auth_service.dart';
 import '../../services/denuncia_service.dart';
 import '../../services/foto_service.dart';
 import '../foto_denuncia.dart';
+import '../shared/font_size_controls.dart';
 import 'selecionar_localizacao_screen.dart';
 
 class NovaDenunciaScreen extends StatefulWidget {
@@ -98,6 +99,10 @@ class _NovaDenunciaScreenState extends State<NovaDenunciaScreen> {
             tipo:        _tipo!,
             localizacao: _localizacao!,
             fotoUrl:     _fotoUrl,
+            denuncianteNome:     usuario.nome,
+            denuncianteTelefone: usuario.telefone,
+            denuncianteEmail:    usuario.email,
+            denuncianteCpf:      usuario.cpf,
           );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -121,6 +126,7 @@ class _NovaDenunciaScreenState extends State<NovaDenunciaScreen> {
         title: const Text('Nova Denúncia'),
         backgroundColor: Colors.red.shade700,
         foregroundColor: Colors.white,
+        actions: const [FontSizeControls()],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -207,7 +213,8 @@ class _NovaDenunciaScreenState extends State<NovaDenunciaScreen> {
                 maxLines: 5,
                 decoration: const InputDecoration(
                   border: OutlineInputBorder(),
-                  hintText: 'Descreva o que aconteceu, se útil, um ponto de referência do local.',
+                  hintText: 'Descreva o que aconteceu e, se útil, um ponto '
+                      'de referência do local (mín. 20 caracteres)',
                 ),
                 validator: (v) => (v == null || v.trim().length < 20)
                     ? 'Mínimo de 20 caracteres'

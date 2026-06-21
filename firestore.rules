@@ -1,11 +1,6 @@
-// firestore.rules — Voz Animal
-// Deploy: firebase deploy --only firestore:rules
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // ── Helpers ─────────────────────────────────────────────────
 
     function autenticado() {
       return request.auth != null;
@@ -29,23 +24,26 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/denuncias/$(denunciaId)).data;
     }
 
-    // Verifica se o órgão logado é o responsável atual da denúncia
     function souResponsavel(denunciaId) {
       return denunciaAtual(denunciaId).orgaoResponsavelId == meuId();
     }
 
-    // Valida que apenas campos permitidos foram alterados
+    function souDono(denunciaId) {
+      return denunciaAtual(denunciaId).usuarioId == meuId();
+    }
+
     function somenteAlterou(campos) {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(campos);
     }
 
-    // Transições de status válidas (espelha a lógica Dart)
+    function naoAlterou(campos) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(campos);
+    }
+
     function transicaoValida(de, para) {
       return (de == 'em_analise'  && (para == 'em_andamento' || para == 'recusada'))
           || (de == 'em_andamento' && (para == 'resolvida'    || para == 'recusada'));
     }
-
-    // ── Coleção: usuarios ────────────────────────────────────────
 
     match /usuarios/{uid} {
       allow read: if autenticado() && meuId() == uid;
@@ -55,36 +53,35 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // ── Coleção: denuncias ───────────────────────────────────────
-
     match /denuncias/{denunciaId} {
 
-      // Qualquer usuário autenticado pode ler
       allow read: if autenticado();
 
-      // Cidadão cria; status inicial deve ser "aberta"
       allow create: if isCidadao()
           && request.resource.data.usuarioId == meuId()
           && request.resource.data.status == 'aberta'
-          && request.resource.data.orgaoResponsavelId == null;
+          && request.resource.data.orgaoResponsavelId == null
+          && request.resource.data.descricao is string
+          && request.resource.data.descricao.size() >= 20
+          && (!('denuncianteCpf' in request.resource.data)
+              || request.resource.data.denuncianteCpf is string);
 
-      // Órgão pode fazer update — regras granulares abaixo
-      allow update: if isOrgao() && _updatePermitido(denunciaId);
+      allow update: if isOrgao()
+          && _updatePermitido(denunciaId)
+          && naoAlterou([
+               'denuncianteNome', 'denuncianteTelefone',
+               'denuncianteEmail', 'denuncianteCpf',
+               'usuarioId', 'descricao', 'tipo', 'criadoEm'
+             ]);
 
       allow delete: if false;
 
-      // ── Histórico (subcoleção) ──────────────────────────────────
-
       match /historico/{itemId} {
         allow read:   if autenticado();
-        allow create: if isOrgao();   // apenas functions/orgao criam
+        allow create: if isOrgao();
         allow update, delete: if false;
       }
     }
-
-    // ── Função auxiliar de update ─────────────────────────────────
-    // (funções não podem referenciar outras funções no escopo match,
-    //  por isso usamos inline — separado por operação)
 
     function _updatePermitido(denunciaId) {
       let atual = resource.data;
@@ -92,8 +89,6 @@ service cloud.firestore {
       let status  = atual.status;
       let novoStatus = novo.status;
 
-      // Operação: ASSUMIR
-      // Condições: status aberto, órgão não bloqueado, campos corretos
       let isAssumir = status == 'aberta'
           && novoStatus == 'em_analise'
           && novo.orgaoResponsavelId == meuId()
@@ -102,13 +97,11 @@ service cloud.firestore {
                || atual.bloqueadosAte[meuId()] < request.time
              );
 
-      // Operação: ALTERAR STATUS
       let isAlterarStatus = souResponsavel(denunciaId)
           && transicaoValida(status, novoStatus)
           && novo.orgaoResponsavelId == atual.orgaoResponsavelId
           && somenteAlterou(['status', 'atualizadoEm']);
 
-      // Operação: DEVOLVER
       let isDevolver = souResponsavel(denunciaId)
           && novoStatus == 'aberta'
           && novo.orgaoResponsavelId == null

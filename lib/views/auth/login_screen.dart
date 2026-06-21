@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../models/tipo_usuario.dart';
 import '../../services/auth_service.dart';
 import '../router_screen.dart';
+import '../shared/font_size_controls.dart';
 import 'cadastro_screen.dart';
 
 class _CnpjInputFormatter extends TextInputFormatter {
@@ -74,11 +75,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
     final msg = switch (resultado) {
       LoginResultado.usuarioNaoEncontrado =>
-          'Nenhuma conta encontrada com este e-mail.',
+      'E-mail ou senha incorretos.',
       LoginResultado.senhaIncorreta =>
-          'Senha incorreta. Verifique e tente novamente.',
+      'E-mail ou senha incorretos.',
       LoginResultado.cnpjIncorreto =>
-          'CNPJ não corresponde ao cadastro deste e-mail.',
+      'CNPJ não corresponde ao cadastro deste e-mail.',
       _ => 'Erro ao fazer login. Tente novamente.',
     };
 
@@ -100,6 +101,7 @@ class _LoginScreenState extends State<LoginScreen> {
         title: Text(_isOrgao ? 'Login do Órgão' : 'Login do Cidadão'),
         backgroundColor: cor,
         foregroundColor: Colors.white,
+        actions: const [FontSizeControls()],
       ),
       body: SafeArea(
         child: SingleChildScrollView(

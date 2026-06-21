@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../models/denuncia.dart';
 import '../../models/historico_item.dart';
 import '../../models/localizacao.dart';
@@ -9,8 +10,9 @@ import '../../models/tipo_ocorrencia.dart';
 import '../../services/denuncia_service.dart';
 import '../foto_denuncia.dart';
 import '../shared/badges.dart';
+import '../shared/font_size_controls.dart';
 
-class DetalheDenunciaOrgaoScreen extends StatelessWidget {
+class DetalheDenunciaOrgaoScreen extends StatefulWidget {
   final Denuncia denuncia;
   final String orgaoId;
   final String orgaoNome;
@@ -22,19 +24,45 @@ class DetalheDenunciaOrgaoScreen extends StatelessWidget {
     required this.orgaoNome,
   });
 
-  bool get _souResponsavel => denuncia.orgaoResponsavelId == orgaoId;
+  @override
+  State<DetalheDenunciaOrgaoScreen> createState() =>
+      _DetalheDenunciaOrgaoScreenState();
+}
+
+class _DetalheDenunciaOrgaoScreenState
+    extends State<DetalheDenunciaOrgaoScreen> {
+  bool get _souResponsavel =>
+      widget.denuncia.orgaoResponsavelId == widget.orgaoId;
+
+  @override
+  void initState() {
+    super.initState();
+    // Auditoria LGPD: registra a visualização dos dados de contato do
+    // denunciante UMA vez ao abrir a tela — só se o órgão for de fato
+    // o responsável (única condição em que esses dados são exibidos).
+    if (_souResponsavel) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        context.read<DenunciaService>().registrarVisualizacaoDadosDenunciante(
+              denunciaId: widget.denuncia.id,
+              orgaoId: widget.orgaoId,
+              orgaoNome: widget.orgaoNome,
+            );
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final df = DateFormat('dd/MM/yyyy HH:mm');
     final svc = context.read<DenunciaService>();
-    final d = denuncia;
+    final d = widget.denuncia;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Denúncia'),
         backgroundColor: Colors.green.shade700,
         foregroundColor: Colors.white,
+        actions: const [FontSizeControls()],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -61,6 +89,12 @@ class DetalheDenunciaOrgaoScreen extends StatelessWidget {
               _Info('Responsável', d.orgaoResponsavelNome!),
 
             const Divider(height: 28),
+            _ContatoDenuncianteCard(
+              denuncia: d,
+              souResponsavel: _souResponsavel,
+            ),
+
+            const Divider(height: 28),
             const Text('Descrição',
                 style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 4),
@@ -80,19 +114,19 @@ class DetalheDenunciaOrgaoScreen extends StatelessWidget {
             if (d.status == StatusDenuncia.aberta)
               _BotaoAssumir(
                 denuncia: d,
-                orgaoId: orgaoId,
-                orgaoNome: orgaoNome,
+                orgaoId: widget.orgaoId,
+                orgaoNome: widget.orgaoNome,
                 svc: svc,
               ),
 
             if (_souResponsavel &&
                 (d.status == StatusDenuncia.emAnalise ||
                     d.status == StatusDenuncia.emAndamento)) ...[
-              _BotaoAlterarStatus(denuncia: d, orgaoId: orgaoId,
-                  orgaoNome: orgaoNome, svc: svc),
+              _BotaoAlterarStatus(denuncia: d, orgaoId: widget.orgaoId,
+                  orgaoNome: widget.orgaoNome, svc: svc),
               const SizedBox(height: 8),
-              _BotaoDevolver(denuncia: d, orgaoId: orgaoId,
-                  orgaoNome: orgaoNome, svc: svc),
+              _BotaoDevolver(denuncia: d, orgaoId: widget.orgaoId,
+                  orgaoNome: widget.orgaoNome, svc: svc),
             ],
 
             const Divider(height: 32),
@@ -107,6 +141,219 @@ class DetalheDenunciaOrgaoScreen extends StatelessWidget {
   }
 }
 
+// ── Card: Contato do denunciante ────────────────────────────────────────────
+//
+// Regra de visibilidade (minimização de dados — LGPD):
+//   • status == aberta (ninguém assumiu ainda): mostra só "Denunciante
+//     identificado" + primeiro nome. Não expõe telefone/e-mail/CPF para
+//     evitar que órgãos "bisbilhotem" contato sem se comprometer a atender.
+//   • órgão É o responsável (assumiu a denúncia): libera nome completo,
+//     telefone (botões Ligar / WhatsApp) e e-mail.
+//   • CPF: nunca aparece junto com o resto — fica em uma seção colapsada
+//     separada, com aviso de finalidade, e só visível ao responsável.
+
+class _ContatoDenuncianteCard extends StatelessWidget {
+  final Denuncia denuncia;
+  final bool souResponsavel;
+
+  const _ContatoDenuncianteCard({
+    required this.denuncia,
+    required this.souResponsavel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final d = denuncia;
+    final temNome = (d.denuncianteNome ?? '').trim().isNotEmpty;
+
+    if (!souResponsavel) {
+      // Pré-claim: identificação mínima, sem dados de contato.
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.person_outline, color: Colors.grey.shade600, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                temNome
+                    ? 'Denunciante identificado: ${_primeiroNome(d.denuncianteNome!)}'
+                    : 'Denunciante identificado',
+                style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Pós-claim: dados completos de contato liberados.
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.blue.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Icon(Icons.person, color: Colors.blue.shade700, size: 20),
+            const SizedBox(width: 8),
+            Text('Contato do denunciante',
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue.shade800,
+                    fontSize: 13)),
+          ]),
+          const SizedBox(height: 10),
+
+          if (temNome)
+            _LinhaContato(icone: Icons.badge_outlined, texto: d.denuncianteNome!),
+
+          if ((d.denuncianteTelefone ?? '').isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: _LinhaContato(
+                    icone: Icons.phone_outlined,
+                    texto: _formatarTelefone(d.denuncianteTelefone!),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Ligar',
+                  icon: const Icon(Icons.call, size: 20),
+                  color: Colors.green.shade700,
+                  onPressed: () => _ligar(d.denuncianteTelefone!),
+                ),
+                IconButton(
+                  tooltip: 'WhatsApp',
+                  icon: const Icon(Icons.chat, size: 20),
+                  color: const Color(0xFF25D366),
+                  onPressed: () => _whatsapp(d.denuncianteTelefone!),
+                ),
+              ],
+            ),
+          ],
+
+          if ((d.denuncianteEmail ?? '').isNotEmpty) ...[
+            const SizedBox(height: 8),
+            _LinhaContato(icone: Icons.email_outlined, texto: d.denuncianteEmail!),
+          ],
+
+          if ((d.denuncianteCpf ?? '').isNotEmpty) ...[
+            const SizedBox(height: 4),
+            _SecaoCpfColapsada(cpf: d.denuncianteCpf!),
+          ],
+        ],
+      ),
+    );
+  }
+
+  static String _primeiroNome(String nomeCompleto) =>
+      nomeCompleto.trim().split(' ').first;
+
+  static String _formatarTelefone(String digits) {
+    final d = digits.replaceAll(RegExp(r'\D'), '');
+    if (d.length == 11) {
+      return '(${d.substring(0, 2)}) ${d.substring(2, 7)}-${d.substring(7)}';
+    }
+    if (d.length == 10) {
+      return '(${d.substring(0, 2)}) ${d.substring(2, 6)}-${d.substring(6)}';
+    }
+    return digits;
+  }
+
+  static Future<void> _ligar(String telefone) async {
+    final digits = telefone.replaceAll(RegExp(r'\D'), '');
+    final uri = Uri.parse('tel:$digits');
+    if (await canLaunchUrl(uri)) await launchUrl(uri);
+  }
+
+  static Future<void> _whatsapp(String telefone) async {
+    final digits = telefone.replaceAll(RegExp(r'\D'), '');
+    // WhatsApp exige código do país; assume Brasil (55) se ausente.
+    final comDdi = digits.length <= 11 ? '55$digits' : digits;
+    final uri = Uri.parse('https://wa.me/$comDdi');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+}
+
+class _LinhaContato extends StatelessWidget {
+  final IconData icone;
+  final String texto;
+  const _LinhaContato({required this.icone, required this.texto});
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Icon(icone, size: 16, color: Colors.blue.shade700),
+      const SizedBox(width: 8),
+      Expanded(
+        child: SelectableText(texto, style: const TextStyle(fontSize: 13)),
+      ),
+    ],
+  );
+}
+
+// ── Seção colapsada: CPF para procedimento formal ───────────────────────────
+
+class _SecaoCpfColapsada extends StatelessWidget {
+  final String cpf;
+  const _SecaoCpfColapsada({required this.cpf});
+
+  String get _cpfFormatado {
+    final d = cpf.replaceAll(RegExp(r'\D'), '');
+    if (d.length != 11) return cpf;
+    return '${d.substring(0, 3)}.${d.substring(3, 6)}.${d.substring(6, 9)}-${d.substring(9)}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        tilePadding: EdgeInsets.zero,
+        title: const Text('Dados para procedimento formal',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+        leading: Icon(Icons.gavel_outlined, size: 18, color: Colors.blue.shade700),
+        childrenPadding: const EdgeInsets.only(bottom: 8),
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.amber.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.amber.shade200),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _LinhaContato(icone: Icons.badge, texto: 'CPF: $_cpfFormatado'),
+                const SizedBox(height: 6),
+                Text(
+                  'Use apenas se for converter esta denúncia em Boletim de '
+                  'Ocorrência ou processo administrativo formal.',
+                  style: TextStyle(fontSize: 11, color: Colors.amber.shade900),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _Info extends StatelessWidget {
   final String label;
@@ -122,7 +369,6 @@ class _Info extends StatelessWidget {
     ]),
   );
 }
-
 
 class _BotaoAssumir extends StatefulWidget {
   final Denuncia denuncia;
@@ -188,7 +434,6 @@ class _BotaoAssumirState extends State<_BotaoAssumir> {
   }
 }
 
-
 class _BotaoAlterarStatus extends StatefulWidget {
   final Denuncia denuncia;
   final String orgaoId;
@@ -249,7 +494,6 @@ class _BotaoAlterarStatusState extends State<_BotaoAlterarStatus> {
   }
 }
 
-
 class _BotaoDevolver extends StatefulWidget {
   final Denuncia denuncia;
   final String orgaoId;
@@ -266,12 +510,11 @@ class _BotaoDevolverState extends State<_BotaoDevolver> {
   bool _carregando = false;
 
   Future<void> _devolver() async {
-    // Pede confirmação + observação
     final observacao = await showDialog<String>(
       context: context,
       builder: (_) => _DialogDevolver(),
     );
-    if (observacao == null) return; // cancelou a devolução
+    if (observacao == null) return;
 
     setState(() => _carregando = true);
     final result = await widget.svc.devolver(
@@ -362,7 +605,6 @@ class _DialogDevolverState extends State<_DialogDevolver> {
   );
 }
 
-
 class _PainelHistorico extends StatelessWidget {
   final String denunciaId;
   final DenunciaService svc;
@@ -416,11 +658,12 @@ class _PainelHistorico extends StatelessWidget {
       case 'devolveu':    return const Icon(Icons.undo, color: Colors.orange);
       case 'auto_reset':  return const Icon(Icons.timer_off, color: Colors.grey);
       case 'criado':      return const Icon(Icons.add_circle_outline, color: Colors.blue);
+      case 'dados_denunciante_visualizados':
+        return const Icon(Icons.visibility_outlined, color: Colors.indigo);
       default:            return const Icon(Icons.swap_horiz, color: Colors.purple);
     }
   }
 }
-
 
 class _LocalCard extends StatelessWidget {
   final Localizacao localizacao;

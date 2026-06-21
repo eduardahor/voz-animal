@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../models/tipo_usuario.dart';
 import '../../services/auth_service.dart';
+import '../router_screen.dart';
+import '../shared/font_size_controls.dart';
 
 
 class _CpfInputFormatter extends TextInputFormatter {
@@ -101,15 +103,15 @@ class _CadastroScreenState extends State<CadastroScreen> {
     setState(() => _carregando = true);
 
     final erro = await context.read<AuthService>().cadastrar(
-          nome:      _nome.text.trim(),
-          email:     _email.text.trim(),
-          senha:     _senha.text,
-          tipo:      widget.tipo,
-          orgaoNome: _isOrgao  ? _orgao.text.trim() : null,
-          cnpj:      _isOrgao  ? _cnpj.text.trim()  : null,
-          cpf:       !_isOrgao ? _cpf.text.trim()    : null,
-          telefone:  !_isOrgao ? _telefone.text.trim() : null, // ← NOVO
-        );
+      nome:      _nome.text.trim(),
+      email:     _email.text.trim(),
+      senha:     _senha.text,
+      tipo:      widget.tipo,
+      orgaoNome: _isOrgao  ? _orgao.text.trim() : null,
+      cnpj:      _isOrgao  ? _cnpj.text.trim()  : null,
+      cpf:       !_isOrgao ? _cpf.text.trim()    : null,
+      telefone:  !_isOrgao ? _telefone.text.trim() : null,
+    );
 
     if (!mounted) return;
     setState(() => _carregando = false);
@@ -124,7 +126,11 @@ class _CadastroScreenState extends State<CadastroScreen> {
           backgroundColor: Colors.green,
         ),
       );
-      Navigator.popUntil(context, (r) => r.isFirst);
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const RouterScreen()),
+            (_) => false,
+      );
     }
   }
 
@@ -135,6 +141,7 @@ class _CadastroScreenState extends State<CadastroScreen> {
         title: Text(_isOrgao ? 'Cadastro do Órgão' : 'Cadastro do Cidadão'),
         backgroundColor: _cor,
         foregroundColor: Colors.white,
+        actions: const [FontSizeControls()],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -186,13 +193,17 @@ class _CadastroScreenState extends State<CadastroScreen> {
                     keyboardType: TextInputType.number,
                     inputFormatters: [_CpfInputFormatter()],
                     decoration: const InputDecoration(
-                      labelText: 'CPF',
+                      labelText: 'CPF (opcional)',
                       hintText: '000.000.000-00',
+                      helperText: 'Informe se desejar que sua denúncia possa '
+                          'ser convertida em procedimento formal pelo órgão',
+                      helperMaxLines: 2,
                       prefixIcon: Icon(Icons.badge_outlined),
                       border: OutlineInputBorder(),
                     ),
                     validator: (v) {
                       final d = (v ?? '').replaceAll(RegExp(r'\D'), '');
+                      if (d.isEmpty) return null; // opcional
                       return d.length != 11 ? 'CPF inválido (11 dígitos)' : null;
                     },
                   ),

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/usuario.dart';
 import '../models/tipo_usuario.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 
 const _kUserId    = 'session_user_id';
@@ -62,7 +63,6 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-
   Future<LoginResultado> login({
     required String email,
     required String senha,
@@ -72,6 +72,11 @@ class AuthService extends ChangeNotifier {
     if (email.isEmpty || senha.length < 8) return LoginResultado.erro;
 
     try {
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: email.toLowerCase().trim(),
+        password: senha,
+      );
+
       final snap = await _db
           .collection('usuarios')
           .where('email', isEqualTo: email.toLowerCase().trim())
@@ -79,20 +84,30 @@ class AuthService extends ChangeNotifier {
           .limit(1)
           .get();
 
-
-      if (snap.docs.isEmpty) return LoginResultado.usuarioNaoEncontrado;
+      if (snap.docs.isEmpty) {
+        await FirebaseAuth.instance.signOut();
+        return LoginResultado.usuarioNaoEncontrado;
+      }
 
       final doc   = snap.docs.first;
       final dados = doc.data();
 
-      if (dados['senha'] != senha) return LoginResultado.senhaIncorreta;
-
+      if (dados['senha'] != senha) {
+        await FirebaseAuth.instance.signOut();
+        return LoginResultado.senhaIncorreta;
+      }
 
       if (tipoEsperado == TipoUsuario.orgao) {
-        if (cnpj == null || cnpj.trim().isEmpty) return LoginResultado.cnpjIncorreto;
+        if (cnpj == null || cnpj.trim().isEmpty) {
+          await FirebaseAuth.instance.signOut();
+          return LoginResultado.cnpjIncorreto;
+        }
         final informado   = cnpj.replaceAll(RegExp(r'\D'), '');
         final cadastrado  = (dados['cnpj'] ?? '').toString().replaceAll(RegExp(r'\D'), '');
-        if (informado != cadastrado) return LoginResultado.cnpjIncorreto;
+        if (informado != cadastrado) {
+          await FirebaseAuth.instance.signOut();
+          return LoginResultado.cnpjIncorreto;
+        }
       }
 
       _usuarioAtual = _docToUsuario(doc);
@@ -101,12 +116,17 @@ class AuthService extends ChangeNotifier {
       await _salvarSessao(_usuarioAtual!);
       notifyListeners();
       return LoginResultado.sucesso;
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'user-not-found' || e.code == 'invalid-email' || e.code == 'invalid-credential') {
+        return LoginResultado.usuarioNaoEncontrado;
+      }
+      if (e.code == 'wrong-password') return LoginResultado.senhaIncorreta;
+      return LoginResultado.erro;
     } catch (e) {
       if (kDebugMode) print('[AuthService] Erro no login: $e');
       return LoginResultado.erro;
     }
   }
-
 
   Future<String?> cadastrar({
     required String nome,
@@ -130,7 +150,9 @@ class AuthService extends ChangeNotifier {
 
     if (tipo == TipoUsuario.cidadao) {
       final cpfLimpo = (cpf ?? '').replaceAll(RegExp(r'\D'), '');
-      if (cpfLimpo.length != 11) return 'CPF inválido (11 dígitos).';
+      if (cpfLimpo.isNotEmpty && cpfLimpo.length != 11) {
+        return 'CPF inválido (11 dígitos) — ou deixe em branco.';
+      }
 
       final foneLimpo = (telefone ?? '').replaceAll(RegExp(r'\D'), '');
       if (foneLimpo.length < 10 || foneLimpo.length > 11) {
@@ -149,7 +171,9 @@ class AuthService extends ChangeNotifier {
       if (emailSnap.docs.isNotEmpty) return 'Já existe uma conta com este e-mail.';
 
       // Verifica CPF duplicado
-      if (tipo == TipoUsuario.cidadao && cpf != null) {
+      if (tipo == TipoUsuario.cidadao &&
+          cpf != null &&
+          cpf.replaceAll(RegExp(r'\D'), '').isNotEmpty) {
         final cpfLimpo = cpf.replaceAll(RegExp(r'\D'), '');
         final cpfSnap  = await _db
             .collection('usuarios')
@@ -172,9 +196,19 @@ class AuthService extends ChangeNotifier {
         if (cnpjSnap.docs.isNotEmpty) return 'Já existe uma conta com este CNPJ.';
       }
 
-      // Salva no Firestore
-      final ref = _db.collection('usuarios').doc();
+      // 1. Cria a conta oficial na Autenticação do Firebase
+      final credenciais = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: email.toLowerCase().trim(),
+        password: senha,
+      );
+
+      final userAuth = credenciais.user;
+      if (userAuth == null) return 'Erro ao criar credenciais de autenticação.';
+
+      // 2. Salva no Firestore usando o UID da Autenticação como ID do documento
+      final ref = _db.collection('usuarios').doc(userAuth.uid);
       final foneLimpo = (telefone ?? '').replaceAll(RegExp(r'\D'), '');
+      final cpfLimpoFinal = (cpf ?? '').replaceAll(RegExp(r'\D'), '');
 
       await ref.set({
         'nome':      tipo == TipoUsuario.orgao ? (orgaoNome ?? nome) : nome,
@@ -184,27 +218,31 @@ class AuthService extends ChangeNotifier {
         if (tipo == TipoUsuario.orgao) 'orgaoNome': orgaoNome?.trim(),
         if (tipo == TipoUsuario.orgao && cnpj != null)
           'cnpj': cnpj.replaceAll(RegExp(r'\D'), ''),
-        if (tipo == TipoUsuario.cidadao && cpf != null)
-          'cpf': cpf.replaceAll(RegExp(r'\D'), ''),
+        if (tipo == TipoUsuario.cidadao && cpfLimpoFinal.isNotEmpty)
+          'cpf': cpfLimpoFinal,
         if (tipo == TipoUsuario.cidadao && foneLimpo.isNotEmpty)
           'telefone': foneLimpo,
         'criadoEm': FieldValue.serverTimestamp(),
       });
 
       _usuarioAtual = Usuario(
-        id:        ref.id,
+        id:        userAuth.uid,
         nome:      tipo == TipoUsuario.orgao ? (orgaoNome ?? nome) : nome,
         email:     email.toLowerCase().trim(),
         senha:     senha,
         tipo:      tipo,
         cnpj:      tipo == TipoUsuario.orgao ? cnpj?.replaceAll(RegExp(r'\D'), '') : null,
-        cpf:       tipo == TipoUsuario.cidadao ? cpf?.replaceAll(RegExp(r'\D'), '') : null,
+        cpf:       tipo == TipoUsuario.cidadao && cpfLimpoFinal.isNotEmpty ? cpfLimpoFinal : null,
         telefone:  tipo == TipoUsuario.cidadao ? foneLimpo : null,
       );
 
       await _salvarSessao(_usuarioAtual!);
       notifyListeners();
       return null; // sucesso
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'email-already-in-use') return 'Este e-mail já está em uso na autenticação.';
+      if (e.code == 'weak-password') return 'A senha informada é muito fraca.';
+      return 'Erro no Firebase Auth: ${e.message}';
     } catch (e) {
       if (kDebugMode) print('[AuthService] Erro no cadastro: $e');
       return 'Erro ao criar conta. Tente novamente.';
@@ -257,11 +295,40 @@ class AuthService extends ChangeNotifier {
 
 
   Future<void> logout() async {
+    await FirebaseAuth.instance.signOut();
     await _limparSessao();
     _usuarioAtual = null;
     notifyListeners();
   }
 
+  Future<String?> deletarConta() async {
+    final u = _usuarioAtual;
+    final userAuth = FirebaseAuth.instance.currentUser;
+
+    if (u == null) return 'Sessão expirada ou usuário não localizado.';
+
+    try {
+      await _db.collection('usuarios').doc(u.id).delete();
+
+      if (userAuth != null) {
+        await userAuth.delete();
+      }
+
+      await _limparSessao();
+      _usuarioAtual = null;
+      notifyListeners();
+
+      return null; // sucesso
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'requires-recent-login') {
+        return 'Por segurança, faça Logout, realize o login novamente e tente excluir a conta em seguida.';
+      }
+      return 'Erro ao remover autenticação: ${e.message}';
+    } catch (e) {
+      if (kDebugMode) print('[AuthService] Erro ao deletar conta: $e');
+      return 'Erro inesperado ao excluir seus dados do banco.';
+    }
+  }
 
   Future<void> _salvarSessao(Usuario u) async {
     final prefs = await SharedPreferences.getInstance();

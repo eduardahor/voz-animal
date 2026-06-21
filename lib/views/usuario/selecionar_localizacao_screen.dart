@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 import '../../models/localizacao.dart';
 import '../../services/localizacao_service.dart';
+import '../shared/font_size_controls.dart';
 
 
 class _CepInputFormatter extends TextInputFormatter {
@@ -39,12 +40,13 @@ enum _CepStatus { ocioso, buscando, encontrado, naoEncontrado, semInternet }
 
 class _SelecionarLocalizacaoScreenState
     extends State<SelecionarLocalizacaoScreen> {
-  final _formKey   = GlobalKey<FormState>();
+  final _formKey = GlobalKey<FormState>();
   late final TextEditingController _cep;
   late final TextEditingController _rua;
   late final TextEditingController _numero;
   late final TextEditingController _bairro;
   late final TextEditingController _cidade;
+  final _numeroFocus = FocusNode();
   String _uf = 'SP';
 
   bool _buscandoGps = false;
@@ -55,15 +57,17 @@ class _SelecionarLocalizacaoScreenState
   _CepStatus _cepStatus = _CepStatus.ocioso;
   Timer? _debounce;
 
+  bool get _gpsAtivo => _latGps != null;
+
   @override
   void initState() {
     super.initState();
     final ini = widget.inicial;
-    _cep    = TextEditingController(text: ini?.cep    ?? '');
-    _rua    = TextEditingController(text: ini?.rua    ?? '');
-    _numero = TextEditingController(text: ini?.numero ?? '');
-    _bairro = TextEditingController(text: ini?.bairro ?? '');
-    _cidade = TextEditingController(text: ini?.cidade ?? '');
+    _cep        = TextEditingController(text: ini?.cep ?? '');
+    _rua        = TextEditingController(text: ini?.rua ?? '');
+    _numero     = TextEditingController(text: ini?.numero ?? '');
+    _bairro     = TextEditingController(text: ini?.bairro ?? '');
+    _cidade     = TextEditingController(text: ini?.cidade ?? '');
     if (ini != null) {
       _uf          = ini.estado.isNotEmpty ? ini.estado : 'SP';
       _latGps      = ini.latitude;
@@ -82,14 +86,10 @@ class _SelecionarLocalizacaoScreenState
     _numero.dispose();
     _bairro.dispose();
     _cidade.dispose();
+    _numeroFocus.dispose();
     super.dispose();
   }
 
-  /*
-    Dispara sozinha ~500ms depois do usuário parar de digitar, assim que o
-    CEP atinge 8 dígitos. Nunca bloqueia o formulário: se falhar, o usuário
-    simplesmente preenche rua/bairro/cidade manualmente.
-  */
 
   void _onCepChanged() {
     if (_gpsAtivo) return;
@@ -133,15 +133,6 @@ class _SelecionarLocalizacaoScreenState
     }
   }
 
-  final _numeroFocus = FocusNode();
-
-
-  /*
-    Quando true, os campos de texto ficam bloqueados — o GPS já garante
-    a localização exata e editar texto nesse momento só geraria confusão
-    sobre qual fonte (GPS ou texto) vale.
-  */
-  bool get _gpsAtivo => _latGps != null;
 
   void _limparGps() {
     setState(() {
@@ -173,21 +164,9 @@ class _SelecionarLocalizacaoScreenState
           }
           if (localizacao.cep.isNotEmpty) _cep.text = localizacao.cep;
         });
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(children: [
-              const Icon(Icons.gps_fixed, color: Colors.white, size: 18),
-              const SizedBox(width: 8),
-              Text('GPS obtido! Precisão: '
-                  '±${_precisaoGps!.toStringAsFixed(0)} m'),
-            ]),
-            backgroundColor: Color(_locAtual().precisaoCor),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
 
       case GpsFailure(:final mensagem):
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(mensagem),
@@ -217,14 +196,14 @@ class _SelecionarLocalizacaoScreenState
   }
 
   Localizacao _locAtual() => Localizacao(
-    rua:      _rua.text.trim(),
-    numero:   _numero.text.trim(),
-    bairro:   _bairro.text.trim(),
-    cidade:   _cidade.text.trim(),
-    estado:   _uf,
-    cep:      _cep.text.trim(),
-    latitude: _latGps,
-    longitude: _lonGps,
+    rua:        _rua.text.trim(),
+    numero:     _numero.text.trim(),
+    bairro:     _bairro.text.trim(),
+    cidade:     _cidade.text.trim(),
+    estado:     _uf,
+    cep:        _cep.text.trim(),
+    latitude:   _latGps,
+    longitude:  _lonGps,
     precisaoMetros: _precisaoGps,
   );
 
@@ -236,6 +215,7 @@ class _SelecionarLocalizacaoScreenState
         title: const Text('Localização da ocorrência'),
         backgroundColor: Colors.blue.shade700,
         foregroundColor: Colors.white,
+        actions: const [FontSizeControls()],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -244,231 +224,132 @@ class _SelecionarLocalizacaoScreenState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _MapaVisual(
-                endereco: _locAtual().endereco,
-                cidade:   _cidade.text,
+              _GpsCard(
+                ativo: _gpsAtivo,
+                buscando: _buscandoGps,
                 latitude: _latGps,
                 longitude: _lonGps,
+                precisaoMetros: _precisaoGps,
+                enderecoTexto: _locAtual().endereco,
+                cidadeUf: _cidade.text.isNotEmpty
+                    ? '${_cidade.text}/$_uf'
+                    : '',
+                onUsarGps: _usarGps,
+                onTrocar: _limparGps,
               ),
-              const SizedBox(height: 12),
-
-              if (_gpsAtivo) ...[
-                _PrecisaoIndicador(
-                  latitude:     _latGps!,
-                  longitude:    _lonGps!,
-                  precisaoMetros: _precisaoGps,
-                ),
-                const SizedBox(height: 12),
-              ],
+              const SizedBox(height: 20),
 
               if (!_gpsAtivo) ...[
-                OutlinedButton.icon(
-                  onPressed: _buscandoGps ? null : _usarGps,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.blue.shade700,
-                    side: BorderSide(color: Colors.blue.shade700),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                // CEP
+                TextFormField(
+                  controller: _cep,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [_CepInputFormatter()],
+                  decoration: InputDecoration(
+                    labelText: 'CEP (opcional, autopreenche o endereço)',
+                    hintText: '00000-000',
+                    prefixIcon: const Icon(Icons.markunread_mailbox_outlined),
+                    suffixIcon: _buildCepSuffixIcon(),
+                    border: const OutlineInputBorder(),
                   ),
-                  icon: _buscandoGps
-                      ? const SizedBox(
-                          width: 18, height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Icon(Icons.gps_fixed),
-                  label: Text(_buscandoGps
-                      ? 'Obtendo localização...'
-                      : 'Usar minha localização atual (GPS)'),
                 ),
-                const SizedBox(height: 4),
-                const Text(
-                  'O GPS marca o local exato da ocorrência com alta precisão.',
-                  style: TextStyle(fontSize: 12, color: Colors.black45),
-                  textAlign: TextAlign.center,
-                ),
-              ] else
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.green.shade50,
-                    border: Border.all(color: Colors.green.shade200),
-                    borderRadius: BorderRadius.circular(10),
+                if (_cepStatus == _CepStatus.naoEncontrado ||
+                    _cepStatus == _CepStatus.semInternet)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4, left: 4),
+                    child: Text(
+                      'CEP não encontrado — preencha abaixo manualmente.',
+                      style: TextStyle(fontSize: 12, color: Colors.orange.shade800),
+                    ),
                   ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.check_circle, color: Colors.green.shade700, size: 20),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          'Localização GPS definida — os campos abaixo '
-                          'estão bloqueados pois já não são necessários.',
-                          style: TextStyle(fontSize: 12, color: Colors.green.shade800),
+                const SizedBox(height: 12),
+
+                // Rua + Número
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: TextFormField(
+                        controller: _rua,
+                        textCapitalization: TextCapitalization.words,
+                        decoration: const InputDecoration(
+                          labelText: 'Rua / Avenida *',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (v) => (v == null || v.trim().length < 3)
+                            ? 'Informe a rua'
+                            : null,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 1,
+                      child: TextFormField(
+                        controller: _numero,
+                        focusNode: _numeroFocus,
+                        decoration: const InputDecoration(
+                          labelText: 'Nº',
+                          hintText: 'S/N',
+                          border: OutlineInputBorder(),
                         ),
                       ),
-                      TextButton(
-                        onPressed: _limparGps,
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.green.shade800,
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                        ),
-                        child: const Text('Trocar',
-                            style: TextStyle(fontWeight: FontWeight.bold)),
-                      ),
-                    ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // Bairro
+                TextFormField(
+                  controller: _bairro,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: const InputDecoration(
+                    labelText: 'Bairro (opcional)',
+                    border: OutlineInputBorder(),
                   ),
                 ),
+                const SizedBox(height: 12),
 
-              const SizedBox(height: 24),
-              Row(children: [
-                const Expanded(child: Divider()),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Text(
-                    _gpsAtivo ? 'preenchimento manual (desativado)' : 'ou preencha manualmente',
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                  ),
-                ),
-                const Expanded(child: Divider()),
-              ]),
-              const SizedBox(height: 16),
-
-              TextFormField(
-                controller: _cep,
-                enabled: !_gpsAtivo,
-                keyboardType: TextInputType.number,
-                inputFormatters: [_CepInputFormatter()],
-                decoration: InputDecoration(
-                  labelText: 'CEP (opcional)',
-                  hintText: '00000-000',
-                  helperText: _gpsAtivo
-                      ? null
-                      : 'Preenche rua e bairro automaticamente',
-                  prefixIcon: const Icon(Icons.markunread_mailbox_outlined),
-                  suffixIcon: _buildCepSuffixIcon(),
-                  border: const OutlineInputBorder(),
-                ),
-                validator: (v) {
-                  if (v == null || v.isEmpty) return null;
-                  if (!RegExp(r'^\d{5}-\d{3}$').hasMatch(v.trim())) {
-                    return 'CEP incompleto';
-                  }
-                  return null;
-                },
-              ),
-              _buildCepStatusMessage(),
-              const SizedBox(height: 16),
-
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+                // Cidade + UF
+                // Cidade + UF
+                Row(children: [
                   Expanded(
-                    flex: 3,
+                    flex: 5, // Aumentei um pouquinho a proporção para 5:2 para ficar mais seguro
                     child: TextFormField(
-                      controller: _rua,
-                      enabled: !_gpsAtivo,
+                      controller: _cidade,
                       textCapitalization: TextCapitalization.words,
                       decoration: const InputDecoration(
-                        labelText: 'Rua / Avenida *',
-                        prefixIcon: Icon(Icons.edit_road),
+                        labelText: 'Cidade *',
                         border: OutlineInputBorder(),
                       ),
-                      validator: (v) {
-                        if (_gpsAtivo) return null; // GPS já garante local
-                        if (v == null || v.trim().length < 3) {
-                          return 'Informe a rua';
-                        }
-                        return null;
-                      },
-                      onChanged: (_) => setState(() {}),
+                      validator: (v) => (v == null || v.trim().length < 2)
+                          ? 'Informe a cidade'
+                          : null,
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    flex: 1,
-                    child: TextFormField(
-                      controller: _numero,
-                      enabled: !_gpsAtivo,
-                      focusNode: _numeroFocus,
-                      keyboardType: TextInputType.text,
+                    flex: 2, // Dei um pixel a mais de respiro para a UF
+                    child: DropdownButtonFormField<String>(
+                      isExpanded: true, // <-- A MÁGICA QUE TIRA A LINHA VERMELHA FICA AQUI
+                      initialValue: _uf,
+                      onChanged: (v) => setState(() => _uf = v ?? 'SP'),
                       decoration: const InputDecoration(
-                        labelText: 'Nº',
-                        hintText: 'S/N',
+                        labelText: 'UF',
                         border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 14), // Diminuí 2px do padding
                       ),
-                      // Número é sempre opcional — em ocorrências de rua
-                      // (terreno baldio, praça, em frente a tal lugar) o
-                      // cidadão raramente tem um número exato para informar.
+                      items: ufsBrasil
+                          .map((u) =>
+                          DropdownMenuItem(value: u, child: Text(u)))
+                          .toList(),
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              if (!_gpsAtivo)
-                Text(
-                  'Sem o número exato? Descreva uma referência (ex: "em frente à padaria").',
-                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-                ),
-              const SizedBox(height: 16),
+                ]),
+              ],
 
-              TextFormField(
-                controller: _bairro,
-                enabled: !_gpsAtivo,
-                textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(
-                  labelText: 'Bairro *',
-                  prefixIcon: Icon(Icons.holiday_village_outlined),
-                  border: OutlineInputBorder(),
-                ),
-                validator: (v) {
-                  if (_gpsAtivo) return null;
-                  if (v == null || v.trim().isEmpty) {
-                    return 'Informe o bairro';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-
-              Row(children: [
-                Expanded(
-                  flex: 3,
-                  child: TextFormField(
-                    controller: _cidade,
-                    enabled: !_gpsAtivo,
-                    textCapitalization: TextCapitalization.words,
-                    decoration: const InputDecoration(
-                      labelText: 'Cidade *',
-                      prefixIcon: Icon(Icons.location_city),
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (v) {
-                      if (_gpsAtivo) return null;
-                      return (v == null || v.trim().length < 2)
-                          ? 'Informe a cidade'
-                          : null;
-                    },
-                    onChanged: (_) => setState(() {}),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  flex: 1,
-                  child: DropdownButtonFormField<String>(
-                    initialValue: _uf,
-                    onChanged: _gpsAtivo ? null : (v) => setState(() => _uf = v ?? 'SP'),
-                    decoration: const InputDecoration(
-                      labelText: 'UF',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 14),
-                    ),
-                    items: ufsBrasil
-                        .map((u) =>
-                            DropdownMenuItem(value: u, child: Text(u)))
-                        .toList(),
-                  ),
-                ),
-              ]),
               const SizedBox(height: 24),
-
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue.shade700,
@@ -486,7 +367,6 @@ class _SelecionarLocalizacaoScreenState
       ),
     );
   }
-
 
   Widget? _buildCepSuffixIcon() {
     switch (_cepStatus) {
@@ -507,47 +387,53 @@ class _SelecionarLocalizacaoScreenState
         return null;
     }
   }
-
-  Widget _buildCepStatusMessage() {
-    String? texto;
-    Color? cor;
-
-    switch (_cepStatus) {
-      case _CepStatus.naoEncontrado:
-        texto = 'CEP não encontrado — sem problema, preencha os campos abaixo manualmente.';
-        cor = Colors.orange.shade700;
-      case _CepStatus.semInternet:
-        texto = 'Sem conexão para buscar o CEP — preencha os campos abaixo manualmente.';
-        cor = Colors.orange.shade700;
-      case _CepStatus.encontrado:
-        texto = 'Endereço encontrado! Confira e complete o número se necessário.';
-        cor = Colors.green.shade700;
-      case _CepStatus.buscando:
-      case _CepStatus.ocioso:
-        return const SizedBox.shrink();
-    }
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 6, left: 4),
-      child: Text(texto, style: TextStyle(fontSize: 12, color: cor)),
-    );
-  }
 }
 
 
-class _PrecisaoIndicador extends StatelessWidget {
-  final double latitude;
-  final double longitude;
+class _GpsCard extends StatelessWidget {
+  final bool ativo;
+  final bool buscando;
+  final double? latitude;
+  final double? longitude;
   final double? precisaoMetros;
+  final String enderecoTexto;
+  final String cidadeUf;
+  final VoidCallback onUsarGps;
+  final VoidCallback onTrocar;
 
-  const _PrecisaoIndicador({
+  const _GpsCard({
+    required this.ativo,
+    required this.buscando,
     required this.latitude,
     required this.longitude,
-    this.precisaoMetros,
+    required this.precisaoMetros,
+    required this.enderecoTexto,
+    required this.cidadeUf,
+    required this.onUsarGps,
+    required this.onTrocar,
   });
 
   @override
   Widget build(BuildContext context) {
+    if (!ativo) {
+      return OutlinedButton.icon(
+        onPressed: buscando ? null : onUsarGps,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: Colors.blue.shade700,
+          side: BorderSide(color: Colors.blue.shade700),
+          padding: const EdgeInsets.symmetric(vertical: 14),
+        ),
+        icon: buscando
+            ? const SizedBox(
+                width: 18, height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2))
+            : const Icon(Icons.gps_fixed),
+        label: Text(buscando
+            ? 'Obtendo localização exata...'
+            : 'Usar minha localização atual (GPS)'),
+      );
+    }
+
     final loc = Localizacao(
       rua: '', cidade: '', estado: 'SP',
       latitude: latitude, longitude: longitude,
@@ -555,159 +441,57 @@ class _PrecisaoIndicador extends StatelessWidget {
     );
     final cor = Color(loc.precisaoCor);
 
+    final somenteCoordenadas = enderecoTexto.startsWith('Lat:') ||
+        enderecoTexto.startsWith('GPS (') ||
+        enderecoTexto.isEmpty;
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: cor.withValues(alpha: 0.1),
+        color: cor.withValues(alpha: 0.08),
         border: Border.all(color: cor.withValues(alpha: 0.4)),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.gps_fixed, color: cor, size: 20),
+          Icon(Icons.gps_fixed, color: cor),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Localização GPS capturada',
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: cor,
-                        fontSize: 13)),
-                const SizedBox(height: 2),
-                Text(
-                  '${latitude.toStringAsFixed(6)}, '
-                  '${longitude.toStringAsFixed(6)}',
-                  style: const TextStyle(
-                      fontSize: 11, color: Colors.black54,
-                      fontFamily: 'monospace'),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: cor.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              loc.precisaoLabel,
-              style: TextStyle(
-                  color: cor, fontWeight: FontWeight.bold, fontSize: 11),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-
-class _MapaVisual extends StatelessWidget {
-  final String endereco;
-  final String cidade;
-  final double? latitude;
-  final double? longitude;
-
-  const _MapaVisual({
-    required this.endereco,
-    required this.cidade,
-    this.latitude,
-    this.longitude,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final temGps = latitude != null && longitude != null;
-    return Container(
-      height: 160,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        gradient: LinearGradient(
-          colors: temGps
-              ? [Colors.blue.shade200, Colors.green.shade200]
-              : [Colors.blue.shade100, Colors.green.shade100],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      child: Stack(
-        children: [
-          CustomPaint(size: Size.infinite, painter: _GradePainter()),
-          if (temGps)
-            Positioned(
-              top: 8, right: 8,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.green.shade700,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.satellite_alt, color: Colors.white, size: 12),
-                    SizedBox(width: 4),
-                    Text('GPS', style: TextStyle(
-                        color: Colors.white, fontSize: 11,
-                        fontWeight: FontWeight.bold)),
-                  ],
-                ),
-              ),
-            ),
-          Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.location_on,
-                    color: temGps ? Colors.green.shade800 : Colors.redAccent,
-                    size: 48),
+                Text(loc.precisaoLabel,
+                    style: TextStyle(fontWeight: FontWeight.bold, color: cor, fontSize: 12)),
+                const SizedBox(height: 4),
+                if (!somenteCoordenadas) ...[
+                  Text(enderecoTexto,
+                      style: const TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w600,
+                          color: Colors.black87)),
+                  if (cidadeUf.isNotEmpty)
+                    Text(cidadeUf,
+                        style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                ] else
+                  Text(
+                    'Não foi possível identificar o endereço — '
+                    'apenas as coordenadas foram capturadas.',
+                    style: TextStyle(fontSize: 12, color: Colors.orange.shade800),
+                  ),
                 const SizedBox(height: 4),
                 Text(
-                  endereco.isEmpty ? 'Endereço não informado' : endereco,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                  '${latitude!.toStringAsFixed(5)}, ${longitude!.toStringAsFixed(5)}',
+                  style: const TextStyle(fontSize: 11, color: Colors.black45),
                 ),
-                if (cidade.isNotEmpty)
-                  Text(cidade,
-                      style: const TextStyle(color: Colors.black54)),
-                if (temGps)
-                  Text(
-                    '${latitude!.toStringAsFixed(4)}, '
-                    '${longitude!.toStringAsFixed(4)}',
-                    style: const TextStyle(
-                        fontSize: 10, color: Colors.black45,
-                        fontFamily: 'monospace'),
-                  ),
               ],
             ),
+          ),
+          TextButton(
+            onPressed: onTrocar,
+            child: const Text('Trocar'),
           ),
         ],
       ),
     );
   }
-}
-
-class _GradePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = Colors.white.withValues(alpha: 0.5)
-      ..strokeWidth = 1;
-    for (double x = 0; x < size.width; x += 24) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), p);
-    }
-    for (double y = 0; y < size.height; y += 24) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), p);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter old) => false;
 }
