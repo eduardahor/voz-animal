@@ -173,14 +173,18 @@ class AuthService extends ChangeNotifier {
     try {
 
       if (tipo == TipoUsuario.cidadao && cpfLimpoFinal.isNotEmpty) {
-        final jaExiste = await _db.collection(_kColecaoCpfs).doc(cpfLimpoFinal).get();
+        final jaExiste = await _db
+            .collection(_kColecaoCpfs)
+            .doc(cpfLimpoFinal)
+            .get();
         if (jaExiste.exists) return 'Já existe uma conta com este CPF.';
+      }
 
         if (tipo == TipoUsuario.cidadao && foneLimpo.isNotEmpty) {
           final jaExisteFone = await _db.collection(_kColecaoTelefones).doc(foneLimpo).get();
           if (jaExisteFone.exists) return 'Este número de telefone já está cadastrado.';
         }
-      }
+
       if (tipo == TipoUsuario.orgao && cnpjLimpo != null) {
         final jaExiste = await _db.collection(_kColecaoCnpjs).doc(cnpjLimpo).get();
         if (jaExiste.exists) return 'Já existe uma conta com este CNPJ.';
