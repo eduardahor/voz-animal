@@ -15,6 +15,7 @@ enum LoginResultado {
 
 const _kColecaoCpfs  = 'cpfs_em_uso';
 const _kColecaoCnpjs = 'cnpjs_em_uso';
+const _kColecaoTelefones = 'telefones_em_uso';
 
 class AuthService extends ChangeNotifier {
   AuthService() {
@@ -174,6 +175,11 @@ class AuthService extends ChangeNotifier {
       if (tipo == TipoUsuario.cidadao && cpfLimpoFinal.isNotEmpty) {
         final jaExiste = await _db.collection(_kColecaoCpfs).doc(cpfLimpoFinal).get();
         if (jaExiste.exists) return 'Já existe uma conta com este CPF.';
+
+        if (tipo == TipoUsuario.cidadao && foneLimpo.isNotEmpty) {
+          final jaExisteFone = await _db.collection(_kColecaoTelefones).doc(foneLimpo).get();
+          if (jaExisteFone.exists) return 'Este número de telefone já está cadastrado.';
+        }
       }
       if (tipo == TipoUsuario.orgao && cnpjLimpo != null) {
         final jaExiste = await _db.collection(_kColecaoCnpjs).doc(cnpjLimpo).get();
@@ -206,6 +212,12 @@ class AuthService extends ChangeNotifier {
 
       if (tipo == TipoUsuario.cidadao && cpfLimpoFinal.isNotEmpty) {
         batch.set(_db.collection(_kColecaoCpfs).doc(cpfLimpoFinal), {
+          'criadoEm': FieldValue.serverTimestamp(),
+        });
+      }
+
+      if (tipo == TipoUsuario.cidadao && foneLimpo.isNotEmpty) {
+        batch.set(_db.collection(_kColecaoTelefones).doc(foneLimpo), {
           'criadoEm': FieldValue.serverTimestamp(),
         });
       }
@@ -268,6 +280,7 @@ class AuthService extends ChangeNotifier {
 
       final cpfLimpo  = cpf?.replaceAll(RegExp(r'\D'), '');
       final cnpjLimpo = cnpj?.replaceAll(RegExp(r'\D'), '');
+      final foneLimpo = telefone?.replaceAll(RegExp(r'\D'), '');
 
       final updates = <String, dynamic>{
         'nome':  nome.trim(),
@@ -288,6 +301,14 @@ class AuthService extends ChangeNotifier {
             .set({'criadoEm': FieldValue.serverTimestamp()});
         if (u.cpf != null && u.cpf!.isNotEmpty) {
           await _db.collection(_kColecaoCpfs).doc(u.cpf).delete();
+        }
+      }
+
+      if (foneLimpo != null && foneLimpo.isNotEmpty && foneLimpo != u.telefone) {
+        await _db.collection(_kColecaoTelefones).doc(foneLimpo)
+            .set({'criadoEm': FieldValue.serverTimestamp()});
+        if (u.telefone != null && u.telefone!.isNotEmpty) {
+          await _db.collection(_kColecaoTelefones).doc(u.telefone).delete();
         }
       }
       if (cnpjLimpo != null && cnpjLimpo.isNotEmpty && cnpjLimpo != u.cnpj) {
@@ -345,6 +366,10 @@ class AuthService extends ChangeNotifier {
       }
       if (u.cnpj != null && u.cnpj!.isNotEmpty) {
         await _db.collection(_kColecaoCnpjs).doc(u.cnpj).delete();
+      }
+
+      if (u.telefone != null && u.telefone!.isNotEmpty) {
+        await _db.collection(_kColecaoTelefones).doc(u.telefone).delete();
       }
 
       await userAuth.delete();

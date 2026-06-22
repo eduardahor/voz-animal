@@ -258,7 +258,9 @@ class _PerfilScreenState extends State<PerfilScreen> {
                       border: OutlineInputBorder(),
                     ),
                     validator: (v) {
-                      final digits = (v ?? '').replaceAll(RegExp(r'\D'), '');
+                      if (v == null || v.trim().isEmpty) return null;
+
+                      final digits = v.replaceAll(RegExp(r'\D'), '');
                       if (digits.length != 11) return 'CPF inválido (11 dígitos)';
                       return null;
                     },
