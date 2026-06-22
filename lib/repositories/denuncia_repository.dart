@@ -6,6 +6,8 @@ import '../models/tipo_ocorrencia.dart';
 import '../models/localizacao.dart';
 import '../models/classificacao_urgencia.dart';
 import '../exceptions/claim_exception.dart';
+import 'dart:io';
+import 'package:firebase_storage/firebase_storage.dart';
 
 const Duration _kBloqueio  = Duration(hours: 48);
 const Duration _kAutoReset = Duration(hours: 48);
@@ -69,9 +71,29 @@ class DenunciaRepository {
       throw ArgumentError('Localização inválida.');
     }
 
-    final ref      = _col.doc();
+    final ref = _col.doc();
     final urgencia = _urgenciaInicial(tipo);
-    final batch    = _db.batch();
+    final batch = _db.batch();
+
+    String? linkPublicoDaFoto;
+
+    if (fotoUrl != null && !fotoUrl.startsWith('assets/')) {
+      try {
+        final storageRef = FirebaseStorage.instance
+            .ref()
+            .child('denuncias')
+            .child(ref.id)
+            .child('foto_ocorrencia.jpg');
+
+        final uploadTask = await storageRef.putFile(File(fotoUrl));
+
+        linkPublicoDaFoto = await uploadTask.ref.getDownloadURL();
+      } catch (e) {
+        throw Exception('Erro ao fazer o upload da foto da denúncia: $e');
+      }
+    } else if (fotoUrl?.startsWith('assets/') == true) {
+      linkPublicoDaFoto = fotoUrl;
+    }
 
     batch.set(ref, {
       'usuarioId':           usuarioId,
@@ -79,7 +101,7 @@ class DenunciaRepository {
       'tipo':                tipo.firestoreValue,
       'urgencia':            urgencia.firestoreValue,
       'status':              'aberta',
-      if (fotoUrl != null) 'fotoUrl': fotoUrl,
+      if (linkPublicoDaFoto != null) 'fotoUrl': linkPublicoDaFoto, // Salvando o Link da Nuvem!
       'localizacao':         localizacao.toMap(),
       'orgaoResponsavelId':  null,
       'orgaoResponsavelNome': null,
